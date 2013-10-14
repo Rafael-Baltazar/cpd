@@ -1,14 +1,20 @@
 #Makefile to project
 
+SERIAL_EXE=wolves-squirrels-serial
+SERIAL_C=wolves-squirrels-serial.c
+SERIAL_O=wolves-squirrels-serial.o
+CC=gcc
+FLAGS=
+
 all: serial	
 
-serial: wolves-squirrels-serial
+serial: $(SERIAL_EXE)
 
-wolves-squirrels-serial: wolves-squirrels-serial.o
-	gcc -o wolves-squirrels-serial wolves-squirrels-serial.o
+$(SERIAL_EXE): $(SERIAL_O)
+	$(CC) -o $(SERIAL_EXE) $(SERIAL_O)
 
-wolves-squirrels-serial.o: wolves-squirrels-serial.c
-	gcc -c wolves-squirrels-serial.c -o wolves-squirrels-serial.o
+$(SERIAL_O): $(SERIAL_C)
+	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)
 
 clean:
-	rm -rf *.o wolves-squirrels-serial
+	rm -rf *.o $(SERIAL_EXE)
