@@ -1,6 +1,6 @@
 #Makefile to project
 
-all: serial
+all: serial	
 
 serial: wolves-squirrels-serial
 
