@@ -98,6 +98,32 @@ void print_all_cells(){
 	}
 }
 
+
+void populate_world_from_file(char file_name[]){
+
+	FILE *fp;
+	fp = fopen(file_name,"r");
+	if(fp == NULL) {
+		printf("Error while opening the file.\n");
+	} else {
+		printf("File found. Now polulating...\n");
+		int i, j, max_size;
+		char a;
+		while(fscanf(fp, "%d %d %c", &i, &j, &a) != EOF) {
+			if(a=='w')
+				world[j][i].type = WOLF;
+			else if(a=='s')
+				world[j][i].type = SQUIRREL;
+			else if(a=='i')
+				world[j][i].type = ICE;
+			else if(a=='t')
+				world[j][i].type = TREE;
+		}
+	}
+}
+
+
+
  
 
 int main(int argc, char **argv) {
@@ -109,6 +135,16 @@ int main(int argc, char **argv) {
 	world[3][1].type = TREE;
 	world[1][0].type = WOLF | SQUIRREL;	
 	print_all_cells(world);
+
+	int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
+	if(argc>1) {
+		populate_world_from_file(argv[1]);
+		w_breeding_p = atoi(argv[2]);
+		s_breeding_p = atoi(argv[3]);
+		w_starvation_p = atoi(argv[4]);
+		num_gen = atoi(argv[5]);	
+	}
+	print_all_cells();
 
 	return 0;	
 }
