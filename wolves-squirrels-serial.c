@@ -51,9 +51,9 @@ void iterate_subgeneration(int color) {
 	for(i = 0; i < MAX; i++) {
 		for(j = color; j < MAX; j += 2) {
 			if(world[i][j].type & WOLF)
-				//update_wolf(i,j);
+				;//update_wolf(i,j);
 			else if(world[i][j].type & SQUIRREL)
-				//update_squirrel(i,j);
+				;//update_squirrel(i,j);
 			
 			color = (i+1 + color) % 2;
 		}
