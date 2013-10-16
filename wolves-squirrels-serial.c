@@ -9,6 +9,8 @@
 #define MAX 20	
 
 //Types (Defined as binnary masks to make the comparations easier to handle)
+// Empty is 0
+
 #define WOLF 1			//0001
 #define SQUIRREL 2 		//0010
 #define ICE 4			//0100
@@ -62,17 +64,51 @@ void iterate_subgeneration(int color) {
 //prints the world
 void print_all_cells(){
 	int i, j;
-	for(i=0;i<MAX;++i) {
-		for(j=0;j<MAX;++j) {
-			printf("%d", world[i][j].type);
+	char type;
+	struct world cell;
+
+	for(i = 0; i < MAX; i++) {
+		for(j = 0; j < MAX; j++) {
+			cell = world[i][j];
+
+			if(cell.type) {
+				if(cell.type & WOLF) {
+					type = 'w';
+				}
+				else if(cell.type & SQUIRREL) {
+				//Squirrel and a tree
+					if(cell.type & TREE) {
+						type = '$';
+					}
+					else {
+						type = 's';
+					}
+				}
+				else if(cell.type & ICE) {
+					type = 'i';
+				}
+				else {
+					type = 't';
+				}
+
+				printf("%d %d %c\n", i, j, type);
+			}
+			
 		}
-		printf("\n");
 	}
 }
 
  
 
 int main(int argc, char **argv) {
+	//Test world print
+
+	world[0][0].type = WOLF;
+	world[1][2].type = SQUIRREL | TREE;
+	world[2][2].type = ICE;
+	world[3][1].type = TREE;
+	world[1][0].type = WOLF | SQUIRREL;	
+	print_all_cells(world);
 
 	return 0;	
 }
