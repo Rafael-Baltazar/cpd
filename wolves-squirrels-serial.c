@@ -4,6 +4,8 @@
  * Serial implementation
  */
 
+#include <stdio.h>
+
 #define MAX 20	
 
 //Types (Defined as binnary masks to make the comparations easier to handle)
@@ -78,6 +80,7 @@ void print_all_cells(){
 		}
 		printf("\n");
 	}
+}
 
  
 
