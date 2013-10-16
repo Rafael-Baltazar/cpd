@@ -14,6 +14,9 @@
 #define ICE 4			//0100
 #define TREE 8			//1000
 
+#define RED 0
+#define BLACK 1
+
 /*
  * World structure
  */
