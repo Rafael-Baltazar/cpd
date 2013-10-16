@@ -39,36 +39,21 @@ void compute_squirrel(int row, int col){
 	printf("There's a squirrel at: %d x %d!\n", row, col);
 }
 
-//functions for generation computations
-//checks all black checks for WOLFS or SQUIRRELS. If it finds any of those, it simulates their behavior
-void compute_black_cells(){
+/*
+ * Updates only the wolf and squirrels that belong to a specific subgeneration.
+ * color: the color of the subgeneration to be updated.
+ */
+void iterate_subgeneration(int color) {
 	int i, j;
-	for(i=0;i<MAX;i+=2){
-		for(j=0;j<MAX;j+=2) {
-			if(world[i][j+1].type == WOLF)
-				compute_wolf(i,j+1);
-			else if(world[i][j+1].type == SQUIRREL)
-				compute_squirrel(i,j+1);
-			if(world[i+1][j].type== WOLF)
-				compute_wolf(i+1,j);
-			else if(world[i+1][j].type== SQUIRREL)
-				compute_squirrel(i+1,j);
-		}
-	}
-}
-
-void compute_red_cells(){
-	int i, j;
-	for(i=0;i<MAX;i+=2){
-		for(j=0;j<MAX;j+=2) {
-			if(world[i][j].type == WOLF)
-				compute_wolf(i,j);
-			else if(world[i][j].type == SQUIRREL)
-				compute_squirrel(i,j);
-			if(world[i+1][j+1].type== WOLF)
-				compute_wolf(i+1,j+1);
-			else if(world[i+1][j+1].type== SQUIRREL)
-				compute_wolf(i+1,j+1);
+	
+	for(i = 0; i < MAX; i++) {
+		for(j = color; j < MAX; j += 2) {
+			if(world[i][j].type & WOLF)
+				//update_wolf(i,j);
+			else if(world[i][j].type & SQUIRREL)
+				//update_squirrel(i,j);
+			
+			color = (i+1 + color) % 2;
 		}
 	}
 }
