@@ -10,18 +10,26 @@
 //Types (Defined as binnary masks to make the comparations easier to handle)
 // Empty is 0
 
+#define EMPTY 0			//0000
 #define WOLF 1			//0001
 #define SQUIRREL 2 		//0010
 #define ICE 4			//0100
 #define TREE 8			//1000
 
+#define UP 0
+#define RIGHT 1
+#define DOWN 2
+#define LEFT 3
+
 #define RED 0
 #define BLACK 1
 /*
- * VERY DIRTY HACK, GLOBAL VARIABLES
+ * VERY DIRTY HACK, GLOBAL VARIABLES, RUN
  */
  //size of the world
  int max_size;
+
+ int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 
 /*
  * World structure
@@ -33,15 +41,35 @@ struct world {
  } **world;
  
  
+ int choose_position(int row, int col, int p) {
+	int c = row * max_size + col;
+	return  c % p;
+ }
+ 
 //functions for animal behavior
 void compute_wolf(int row, int col){
-	//TODO: wolf behavior
+	int pos[4];
+	int p = 0;
+	if((row>0) && (world[row-1][col].type==EMPTY)) {
+		pos[p++] = UP;
+	}
+	//TODO: REST
+	if(col<max_size)
+		world[row][col+1].type = EMPTY;
+	if(row<max_size)
+		world[row+1][col].type = EMPTY;
+	if(col>0)
+		world[row][col-1].type = EMPTY;
+	
+	
 	printf("There's a wolf at: %d x %d!\n", row, col);
 }
 
 void compute_squirrel(int row, int col){
 	//TODO: squirrel behavior
 	printf("There's a squirrel at: %d x %d!\n", row, col);
+	
+	
 }
 
 /*
@@ -116,12 +144,13 @@ void populate_world_from_file(char file_name[]){
 		for(k=0;k<max_size;++k) {
 			world[k] = (struct world*) malloc(max_size*sizeof(struct world));
 		}
+		//world initialization
 		for(i=0;i<max_size;++i) {
 			for(j=0;j<max_size;++j){
-				world[i][j].type = 0;
+				world[i][j].type = EMPTY;
 			}
-		}
-		
+		} 
+		//populating
 		while(fscanf(fp, "%d %d %c", &i, &j, &a) != EOF) {
 			if(a=='w')
 				world[i][j].type = WOLF;
@@ -134,7 +163,7 @@ void populate_world_from_file(char file_name[]){
 			else if(a=='$')
 				world[i][j].type = SQUIRREL | TREE;
 			else 
-				world[i][j].type = 0;	
+				world[i][j].type = EMPTY;	
 		}
 	}
 }
@@ -145,9 +174,6 @@ void populate_world_from_file(char file_name[]){
 
 int main(int argc, char **argv) {
 	//Test world print
-
-
-	int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 	if(argc>1) {
 		populate_world_from_file(argv[1]);
 		w_breeding_p = atoi(argv[2]);
