@@ -46,15 +46,68 @@ struct world {
  	int starvation_period;
  } **world;
  
- 
+/*
+ * cell_number: Return the cell number of a given
+ *	matrix position (row, col)
+ */ 
 inline int cell_number(int row, int col) {
 	return row * max_size + col;
 }
 
- int choose_position(int row, int col, int p) {
+/*
+ * choose_position: Apply the rule to choose a position
+ *	even when we have more than one to choose
+ */
+inline int choose_position(int row, int col, int p) {
 	int c = cell_number(row, col);
 	return  c % p;
  }
+
+/*
+ * get_adjacents: Return the number possible adjacent positions
+ *	of a given position (row, col)
+ *	adjacents: array with the cell numbers of all
+ *		adjacent positions
+ */
+int get_adjacents(int row, int col, int *adjacents) {
+	int i = 0;
+	int founded = 0;
+	/*Has up adjacent cell?*/
+	if(row > 0) {
+		adjacents[i++] = cell_number(row - 1, col);
+		founded++;
+	}
+
+	/*Has right adjacent cell?*/
+	if(col < max_size - 1) {
+		adjacents[i++] = cell_number(row, col + 1);
+		founded++;
+	}
+
+	/*Has down adjacent cell?*/
+	if(row < max_size - 1) {
+		adjacents[i++] = cell_number(row + 1, col);
+		founded++;
+	}
+
+	/*Has left adjacent cell?*/
+	if(col > 0) {
+		adjacents[i++] = cell_number(row, col - 1);
+		founded++;
+	}
+
+	return founded;
+}
+
+/*
+ * get_world_coordinates: Return in row and col the right
+ *	coordinates of the matric of a given cell number
+ */
+void get_world_coordinates(int cell_number, int *row, int *col) {
+	*col = cell_number % max_size;
+	*row = (cell_number - *col) / max_size;
+}
+
  
 /*
  * move_to: Move an animal in position (src_row, src_col)
@@ -88,45 +141,13 @@ void move_to(int src_row, int src_col, int dest_c) {
 void compute_squirrel(int row, int col){
 	/*TODO: squirrel behavior*/
 	printf("There's a squirrel at: %d x %d!\n", row, col);
-	
-	
 }
 
-int get_adjacents(int row, int col, int *adjacents) {
-	int i = 0;
-	int founded = 0;
-	/*Has up adjacent cell?*/
-	if(row > 0) {
-		adjacents[i++] = cell_number(row - 1, col);
-		founded++;
-	}
-
-	/*Has right adjacent cell?*/
-	if(col < max_size - 1) {
-		adjacents[i++] = cell_number(row, col + 1);
-		founded++;
-	}
-
-	/*Has down adjacent cell?*/
-	if(row < max_size - 1) {
-		adjacents[i++] = cell_number(row + 1, col);
-		founded++;
-	}
-
-	/*Has left adjacent cell?*/
-	if(col > 0) {
-		adjacents[i++] = cell_number(row, col - 1);
-		founded++;
-	}
-
-	return founded;
-}
-
-void get_world_coordinates(int cell_number, int *row, int *col) {
-	*col = cell_number % max_size;
-	*row = (cell_number - *col) / max_size;
-}
-
+/*
+ * get_cells_with_squirrels: Return the number of the cells
+ * in possibilities with squirres
+ *	squirriles: Array with cell numbers of cells that have squirrels
+ */
 int get_cells_with_squirrels(int *possibilities, int n_possibilities, int *squirrels) {
 	int i;
 	int founded = 0;
@@ -146,6 +167,11 @@ int get_cells_with_squirrels(int *possibilities, int n_possibilities, int *squir
 	return founded;
 }
 
+/*
+ * get_empty_cells: Return the number of the cells
+ * in possibilities that are empty
+ *	empty_cells: Array with cell numbers of cells that are empty
+ */
 int get_empty_cells(int *possibilities, int n_possibilities, int *empty_cells) {
 	int i;
 	int founded = 0;
@@ -167,7 +193,6 @@ int get_empty_cells(int *possibilities, int n_possibilities, int *empty_cells) {
 /*
  * Update rules for animals in the world
  */
-
 void update_wolf(int row, int col) {
 	int possibilities[N_ADJACENTS];
 	int may_move[N_ADJACENTS];
@@ -255,7 +280,6 @@ void print_all_cells(){
 		}
 	}
 }
-
 
 void populate_world_from_file(char file_name[]) {
 	FILE *fp;
