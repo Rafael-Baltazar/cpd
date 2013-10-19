@@ -7,14 +7,14 @@
 #include <stdio.h>
 #include <stdlib.h>	
 
-//Types (Defined as binnary masks to make the comparations easier to handle)
-// Empty is 0
+/*Types (Defined as binnary masks to make the comparations easier to handle) */
+/* Empty is 0 */
 
-#define EMPTY 0			//0000
-#define WOLF 1			//0001
-#define SQUIRREL 2 		//0010
-#define ICE 4			//0100
-#define TREE 8			//1000
+#define EMPTY 0			/*0000*/
+#define WOLF 1			/*0001*/
+#define SQUIRREL 2 		/*0010*/
+#define ICE 4			/*0100*/
+#define TREE 8			/*1000*/
 
 #define UP 0
 #define RIGHT 1
@@ -26,7 +26,7 @@
 /*
  * VERY DIRTY HACK, GLOBAL VARIABLES, RUN
  */
- //size of the world
+ /*size of the world*/
  int max_size;
 
  int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
@@ -52,14 +52,24 @@ inline int cell_number(int row, int col) {
 	return  c % p;
  }
  
-//functions for animal behavior
-void compute_wolf(int row, int col){
+/*
+ * move_to: Move an animal in position (src_row, src_col)
+ * 	to cell number dest_c
+ */
+void move_to(int src_row, int src_col, int dest_c) {
+	/* TODO: Implement this... */
+}
+
+/*
+ * functions for animal behavior
+ */
+/*void compute_wolf(int row, int col){
 	int pos[4];
 	int p = 0;
 	if((row>0) && (world[row-1][col].type==EMPTY)) {
 		pos[p++] = UP;
 	}
-	//TODO: REST
+	TODO: REST
 	if(col<max_size)
 		world[row][col+1].type = EMPTY;
 	if(row<max_size)
@@ -69,10 +79,10 @@ void compute_wolf(int row, int col){
 	
 	
 	printf("There's a wolf at: %d x %d!\n", row, col);
-}
+}*/
 
 void compute_squirrel(int row, int col){
-	//TODO: squirrel behavior
+	/*TODO: squirrel behavior*/
 	printf("There's a squirrel at: %d x %d!\n", row, col);
 	
 	
@@ -81,25 +91,25 @@ void compute_squirrel(int row, int col){
 int get_adjacents(int row, int col, int *adjacents) {
 	int i = 0;
 	int founded = 0;
-	//Has up adjacent cell?
+	/*Has up adjacent cell?*/
 	if(row > 0) {
 		adjacents[i++] = cell_number(row - 1, col);
 		founded++;
 	}
 
-	//Has right adjacent cell?
+	/*Has right adjacent cell?*/
 	if(col < max_size - 1) {
 		adjacents[i++] = cell_number(row, col + 1);
 		founded++;
 	}
 
-	//Has down adjacent cell?
+	/*Has down adjacent cell?*/
 	if(row < max_size - 1) {
 		adjacents[i++] = cell_number(row + 1, col);
 		founded++;
 	}
 
-	//Has left adjacent cell?
+	/*Has left adjacent cell?*/
 	if(col > 0) {
 		adjacents[i++] = cell_number(row, col - 1);
 		founded++;
@@ -162,24 +172,26 @@ void update_wolf(int row, int col) {
 
 	n_possibilities = get_adjacents(row, col, possibilities);
 
-	//If has adjacents to choose
+	/*If has adjacents to choose*/
 	if(n_possibilities) {
-		//Check for squirrels
+		/*Check for squirrels*/
 		n_squirrels = get_cells_with_squirrels(possibilities, n_possibilities, may_move);
 		if(n_squirrels) {
-			//At least one squirrel as been founded
-			//Choose one of them
+			/*At least one squirrel as been founded
+				Choose one of them*/
 			choosed = choose_position(row, col, n_squirrels);
-			//Move to that position
+			/*Move to that position*/
+			move_to(row, col, choosed);
 		}
 
 		else {
-			//No squirrels
-			//Let's check if there's any empty cell
+			/*No squirrels
+				Let's check if there's any empty cell*/
 			n_empty = get_empty_cells(possibilities, n_possibilities, may_move);
 			if(n_empty) {
 				choosed = choose_position(row, col, n_empty);
-				//Move to that position
+				/*Move to that position*/
+				move_to(row, col, choosed);
 			}
 		}
 	}
@@ -196,15 +208,14 @@ void iterate_subgeneration(int color) {
 			if(world[i][j].type & WOLF)
 				update_wolf(i,j);
 			else if(world[i][j].type & SQUIRREL)
-				;//update_squirrel(i,j);
+				;/*update_squirrel(i,j);*/
 			
 			color = (i+1 + color) % 2;
 		}
 	}
 }
 
-//functions for debug
-//prints the world
+/*prints the world*/
 void print_all_cells(){
 	int i, j;
 	char type;
@@ -219,7 +230,7 @@ void print_all_cells(){
 					type = 'w';
 				}
 				else if(cell.type & SQUIRREL) {
-				//Squirrel and a tree
+				/*Squirrel and a tree*/
 					if(cell.type & TREE) {
 						type = '$';
 					}
@@ -242,28 +253,28 @@ void print_all_cells(){
 }
 
 
-void populate_world_from_file(char file_name[]){
-
+void populate_world_from_file(char file_name[]) {
 	FILE *fp;
+	int i, j, k;
+	char a;
 	fp = fopen(file_name,"r");
+
 	if(fp == NULL) {
 		printf("Error while opening the file.\n");
 	} else {
-		printf("File found. Now populating...\n");
-		int i, j, k;
-		char a;
+		/*printf("File found. Now populating...\n");*/
 		fscanf(fp, "%d", &max_size);
 		world = (struct world**) malloc(max_size*sizeof(*world));
 		for(k=0;k<max_size;++k) {
 			world[k] = (struct world*) malloc(max_size*sizeof(struct world));
 		}
-		//world initialization
+		/*world initialization*/
 		for(i=0;i<max_size;++i) {
 			for(j=0;j<max_size;++j){
 				world[i][j].type = EMPTY;
 			}
 		} 
-		//populating
+		/*populating*/
 		while(fscanf(fp, "%d %d %c", &i, &j, &a) != EOF) {
 			if(a=='w')
 				world[i][j].type = WOLF;
@@ -281,12 +292,7 @@ void populate_world_from_file(char file_name[]){
 	}
 }
 
-
-
- 
-
 int main(int argc, char **argv) {
-	//Test world print
 	if(argc>1) {
 		populate_world_from_file(argv[1]);
 		w_breeding_p = atoi(argv[2]);
