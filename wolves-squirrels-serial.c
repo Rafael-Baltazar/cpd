@@ -210,7 +210,7 @@ void update_wolf(int row, int col) {
 				Choose one of them*/
 			choosed = choose_position(row, col, n_squirrels);
 			/*Move to that position*/
-			move_to(row, col, choosed);
+			move_to(row, col, may_move[choosed]);
 		}
 
 		else {
@@ -220,7 +220,7 @@ void update_wolf(int row, int col) {
 			if(n_empty) {
 				choosed = choose_position(row, col, n_empty);
 				/*Move to that position*/
-				move_to(row, col, choosed);
+				move_to(row, col, may_move[choosed]);
 			}
 		}
 	}
@@ -322,6 +322,18 @@ void populate_world_from_file(char file_name[]) {
 	}
 }
 
+/*
+ * process_generations: Process all the generations
+ */
+void process_generations() {
+	int i;
+
+	for (i = 0; i < num_gen; ++i) {
+		iterate_subgeneration(RED);
+		iterate_subgeneration(BLACK);
+	}
+}
+
 int main(int argc, char **argv) {
 	if(argc == N_ARGS) {
 		populate_world_from_file(argv[1]);
@@ -329,6 +341,7 @@ int main(int argc, char **argv) {
 		s_breeding_p = atoi(argv[3]);
 		w_starvation_p = atoi(argv[4]);
 		num_gen = atoi(argv[5]);
+		process_generations();
 		print_all_cells(world);	
 	}
 	else {
