@@ -33,6 +33,9 @@
 
 #define N_ADJACENTS	4
 
+ /* Main arguments */
+#define N_ARGS 6
+
 /*
  * World structure
  */
@@ -293,12 +296,16 @@ void populate_world_from_file(char file_name[]) {
 }
 
 int main(int argc, char **argv) {
-	if(argc>1) {
+	if(argc == N_ARGS) {
 		populate_world_from_file(argv[1]);
 		w_breeding_p = atoi(argv[2]);
 		s_breeding_p = atoi(argv[3]);
 		w_starvation_p = atoi(argv[4]);
 		num_gen = atoi(argv[5]);	
+	}
+	else {
+		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
+		printf("<squirrel_breeding_period> <wolf_startvation_period> <# of generations>\n");
 	}
 	print_all_cells(world);
 	return 0;	

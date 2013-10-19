@@ -4,7 +4,7 @@ SERIAL_EXE=wolves-squirrels-serial
 SERIAL_C=wolves-squirrels-serial.c
 SERIAL_O=wolves-squirrels-serial.o
 CC=gcc
-FLAGS=-Wall -pedantic
+FLAGS=-Wall -pedantic -g
 
 all: serial	
 
