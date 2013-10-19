@@ -5,7 +5,8 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>	
+#include <stdlib.h>
+#include <string.h>	
 
 /*Types (Defined as binnary masks to make the comparations easier to handle) */
 /* Empty is 0 */
@@ -258,7 +259,7 @@ void print_all_cells(){
 
 void populate_world_from_file(char file_name[]) {
 	FILE *fp;
-	int i, j, k;
+	int i, j, k, size;
 	char a;
 	fp = fopen(file_name,"r");
 
@@ -269,14 +270,16 @@ void populate_world_from_file(char file_name[]) {
 		fscanf(fp, "%d", &max_size);
 		world = (struct world**) malloc(max_size*sizeof(*world));
 		for(k=0;k<max_size;++k) {
-			world[k] = (struct world*) malloc(max_size*sizeof(struct world));
+			size = max_size*sizeof(struct world);
+			world[k] = (struct world*) malloc(size);
+			memset((void*)world[k], 0, size);
 		}
 		/*world initialization*/
-		for(i=0;i<max_size;++i) {
+		/*for(i=0;i<max_size;++i) {
 			for(j=0;j<max_size;++j){
 				world[i][j].type = EMPTY;
 			}
-		} 
+		}*/
 		/*populating*/
 		while(fscanf(fp, "%d %d %c", &i, &j, &a) != EOF) {
 			if(a=='w')
@@ -301,12 +304,12 @@ int main(int argc, char **argv) {
 		w_breeding_p = atoi(argv[2]);
 		s_breeding_p = atoi(argv[3]);
 		w_starvation_p = atoi(argv[4]);
-		num_gen = atoi(argv[5]);	
+		num_gen = atoi(argv[5]);
+		print_all_cells(world);	
 	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
 		printf("<squirrel_breeding_period> <wolf_startvation_period> <# of generations>\n");
 	}
-	print_all_cells(world);
 	return 0;	
 }
