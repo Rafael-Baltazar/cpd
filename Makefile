@@ -16,5 +16,8 @@ $(SERIAL_EXE): $(SERIAL_O)
 $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O) $(FLAGS)
 
+run-serial: serial
+	./$(SERIAL_EXE) data 2 2 2 2
+
 clean:
 	rm -rf *.o $(SERIAL_EXE)
