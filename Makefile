@@ -4,7 +4,7 @@ SERIAL_EXE=wolves-squirrels-serial
 SERIAL_C=wolves-squirrels-serial.c
 SERIAL_O=wolves-squirrels-serial.o
 CC=gcc
-FLAGS=
+FLAGS=-Wall -pedantic
 
 all: serial	
 
@@ -14,7 +14,7 @@ $(SERIAL_EXE): $(SERIAL_O)
 	$(CC) -o $(SERIAL_EXE) $(SERIAL_O)
 
 $(SERIAL_O): $(SERIAL_C)
-	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)
+	$(CC) -c $(SERIAL_C) -o $(SERIAL_O) $(FLAGS)
 
 clean:
 	rm -rf *.o $(SERIAL_EXE)
