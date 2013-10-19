@@ -31,6 +31,8 @@
 
  int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 
+#define N_ADJACENTS	4
+
 /*
  * World structure
  */
@@ -41,8 +43,12 @@ struct world {
  } **world;
  
  
+inline int cell_number(int row, int col) {
+	return row * max_size + col;
+}
+
  int choose_position(int row, int col, int p) {
-	int c = row * max_size + col;
+	int c = cell_number(row, col);
 	return  c % p;
  }
  
@@ -72,6 +78,113 @@ void compute_squirrel(int row, int col){
 	
 }
 
+int get_adjacents(int row, int col, int *adjacents) {
+	int i = 0;
+	int founded = 0;
+	//Has up adjacent cell?
+	if(row > 0) {
+		adjacents[i++] = cell_number(row - 1, col);
+		founded++;
+	}
+
+	//Has right adjacent cell?
+	if(col < max_size - 1) {
+		adjacents[i++] = cell_number(row, col + 1);
+		founded++;
+	}
+
+	//Has down adjacent cell?
+	if(row < max_size - 1) {
+		adjacents[i++] = cell_number(row + 1, col);
+		founded++;
+	}
+
+	//Has left adjacent cell?
+	if(col > 0) {
+		adjacents[i++] = cell_number(row, col - 1);
+		founded++;
+	}
+
+	return founded;
+}
+
+void get_world_coordinates(int cell_number, int *row, int *col) {
+	*col = cell_number % max_size;
+	*row = (cell_number - *col) / max_size;
+}
+
+int get_cells_with_squirrels(int *possibilities, int n_possibilities, int *squirrels) {
+	int i;
+	int founded = 0;
+	struct world cell;
+	int row, col;
+
+	for (i = 0; i < n_possibilities; ++i)
+	{
+		get_world_coordinates(possibilities[i], &row, &col);
+		cell = world[row][col];
+		if(cell.type & WOLF) {
+			squirrels[founded] = cell_number(row, col);
+			founded++;
+		}
+	}
+
+	return founded;
+}
+
+int get_empty_cells(int *possibilities, int n_possibilities, int *empty_cells) {
+	int i;
+	int founded = 0;
+	struct world cell;
+	int row, col;
+
+	for (i = 0; i < n_possibilities; ++i) {
+		get_world_coordinates(possibilities[i], &row, &col);
+		cell = world[row][col];
+		if(!cell.type) {
+			empty_cells[founded] = cell_number(row, col);
+			founded++;
+		}
+	}
+
+	return founded;
+}
+
+/*
+ * Update rules for animals in the world
+ */
+
+void update_wolf(int row, int col) {
+	int possibilities[N_ADJACENTS];
+	int may_move[N_ADJACENTS];
+	int n_possibilities, n_squirrels, n_empty;
+	int choosed;
+
+	n_possibilities = get_adjacents(row, col, possibilities);
+
+	//If has adjacents to choose
+	if(n_possibilities) {
+		//Check for squirrels
+		n_squirrels = get_cells_with_squirrels(possibilities, n_possibilities, may_move);
+		if(n_squirrels) {
+			//At least one squirrel as been founded
+			//Choose one of them
+			choosed = choose_position(row, col, n_squirrels);
+			//Move to that position
+		}
+
+		else {
+			//No squirrels
+			//Let's check if there's any empty cell
+			n_empty = get_empty_cells(possibilities, n_possibilities, may_move);
+			if(n_empty) {
+				choosed = choose_position(row, col, n_empty);
+				//Move to that position
+			}
+		}
+	}
+}
+
 /*
  * Updates only the wolf and squirrels that belong to a specific subgeneration.
  * color: the color of the subgeneration to be updated.
@@ -81,7 +194,7 @@ void iterate_subgeneration(int color) {
 	for(i = 0; i < max_size; i++) {
 		for(j = color; j < max_size; j += 2) {
 			if(world[i][j].type & WOLF)
-				;//update_wolf(i,j);
+				update_wolf(i,j);
 			else if(world[i][j].type & SQUIRREL)
 				;//update_squirrel(i,j);
 			
