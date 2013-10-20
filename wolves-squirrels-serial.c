@@ -16,7 +16,7 @@
 #define SQUIRREL 2 		/*0010*/
 #define ICE 4			/*0100*/
 #define TREE 8			/*1000*/
-#define SQUIRRELnTREE	16 /*10000*/
+#define SQUIRRELnTREE	16/*(SQUIRREL | TREE)*/
 
 #define UP 0
 #define RIGHT 1
@@ -71,32 +71,32 @@ inline int choose_position(int row, int col, int p) {
  */
 int get_adjacents(int row, int col, int *adjacents) {
 	int i = 0;
-	int founded = 0;
+	int found = 0;
 	/*Has up adjacent cell?*/
 	if(row > 0) {
 		adjacents[i++] = cell_number(row - 1, col);
-		founded++;
+		found++;
 	}
 
 	/*Has right adjacent cell?*/
 	if(col < max_size - 1) {
 		adjacents[i++] = cell_number(row, col + 1);
-		founded++;
+		found++;
 	}
 
 	/*Has down adjacent cell?*/
 	if(row < max_size - 1) {
 		adjacents[i++] = cell_number(row + 1, col);
-		founded++;
+		found++;
 	}
 
 	/*Has left adjacent cell?*/
 	if(col > 0) {
 		adjacents[i++] = cell_number(row, col - 1);
-		founded++;
+		found++;
 	}
 
-	return founded;
+	return found;
 }
 
 /*
@@ -160,7 +160,7 @@ void move_to(int src_row, int src_col, int dest_c) {
  */
 int get_cells_with_squirrels(int *possibilities, int n_possibilities, int *squirrels) {
 	int i;
-	int founded = 0;
+	int found = 0;
 	struct world cell;
 	int row, col;
 
@@ -169,12 +169,12 @@ int get_cells_with_squirrels(int *possibilities, int n_possibilities, int *squir
 		get_world_coordinates(possibilities[i], &row, &col);
 		cell = world[row][col];
 		if(cell.type & WOLF) {
-			squirrels[founded] = cell_number(row, col);
-			founded++;
+			squirrels[found] = cell_number(row, col);
+			found++;
 		}
 	}
 
-	return founded;
+	return found;
 }
 /*
  * get_empty_cells: Return the number of the cells
@@ -183,7 +183,7 @@ int get_cells_with_squirrels(int *possibilities, int n_possibilities, int *squir
  */
 int get_empty_cells(int *possibilities, int n_possibilities, int *empty_cells) {
 	int i;
-	int founded = 0;
+	int found = 0;
 	struct world cell;
 	int row, col;
 
@@ -191,12 +191,12 @@ int get_empty_cells(int *possibilities, int n_possibilities, int *empty_cells) {
 		get_world_coordinates(possibilities[i], &row, &col);
 		cell = world[row][col];
 		if(!cell.type) {
-			empty_cells[founded] = cell_number(row, col);
-			founded++;
+			empty_cells[found] = cell_number(row, col);
+			found++;
 		}
 	}
 
-	return founded;
+	return found;
 }
 
 /*
@@ -219,6 +219,17 @@ int get_walkable_cells(int *possibilities, int n_possibilities, int *walkable_ce
 		}
 	}
 	return found;
+}
+
+void eat_squirrel(int wolf_row, int wolf_col, int squirrel_cell) {
+	int row, col;
+	struct world *cell;
+	get_world_coordinates(squirrel_cell, &row, &col);
+	cell = &world[row][col];
+	cell->type = EMPTY;
+	cell->starvation_period = 0;
+	cell->breeding_period = 0;
+	world[wolf_row][wolf_col].starvation_period = w_starvation_p;
 }
 /*
  * Update rules for animals in the world
@@ -253,6 +264,8 @@ void update_wolf(int row, int col) {
 			/*At least one squirrel has been found
 				Choose one of them*/
 			choosed = choose_position(row, col, n_squirrels);
+			/* Eat the squirrel */
+			eat_squirrel(row, col, may_move[choosed]);
 			/*Move to that position*/
 			move_to(row, col, may_move[choosed]);
 		}
@@ -381,8 +394,11 @@ void process_generations() {
 	int i;
 	for (i = 0; i < num_gen; ++i) {
 		iterate_subgeneration(RED);
+		print_all_cells();
+		printf("-----\n");
 		iterate_subgeneration(BLACK);
-		print_for_debug();
+		print_all_cells();
+		printf("-----\n");
 	}
 }
 
