@@ -5,6 +5,7 @@ SERIAL_C=wolves-squirrels-serial.c
 SERIAL_O=wolves-squirrels-serial.o
 CC=gcc
 FLAGS=-Wall -pedantic -g
+DEBUGGER=ddd
 
 all: serial	
 
@@ -18,6 +19,9 @@ $(SERIAL_O): $(SERIAL_C)
 
 run-serial: serial
 	./$(SERIAL_EXE) data 2 2 2 2
+
+debug-serial: serial
+	$(DEBUGGER) ./$(SERIAL_EXE)
 
 clean:
 	rm -rf *.o $(SERIAL_EXE)
