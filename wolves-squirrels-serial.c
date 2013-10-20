@@ -176,30 +176,6 @@ int get_cells_with_squirrels(int *possibilities, int n_possibilities, int *squir
 
 	return founded;
 }
-/* FIXME: Crashes
- * filter_cell_with_type: Return the number of the cells
- * in possibilities that are filtered to include only a given type in filter
- *	filtered_cells: Array with cell numbers of cells that are filtered
- *  filter: The type of cells you want to find in possibilities
- */
-int filter_cell_with_type(int *possibilities, int n_possibilities, int *filtered_cells, int filter) {
-	int i;
-	int found = 0;
-	struct world cell;
-	int row, col;
-
-	for (i = 0; i < n_possibilities; ++i)
-	{
-		get_world_coordinates(possibilities[i], &row, &col);
-		cell = world[row][col];
-		if(cell.type & filter) /*possible bug in this line*/
-			filtered_cells[found++] = cell_number(row, col);
-	}
-
-	return found;
-}
-
-
 /*
  * get_empty_cells: Return the number of the cells
  * in possibilities that are empty
@@ -223,7 +199,28 @@ int get_empty_cells(int *possibilities, int n_possibilities, int *empty_cells) {
 	return founded;
 }
 
-/* FIXME: Still can't climb trees
+/*
+ * get_walkable_cells: Return the number of the cells
+ * in possibilities that are empty or with trees (for squirrel movement)
+ *	walkable_cells: Array with cell numbers of cells that are 'walk-able'
+ */
+
+int get_walkable_cells(int *possibilities, int n_possibilities, int *walkable_cells){
+	int i;
+	int found = 0;
+	struct world cell;
+	int row, col;
+
+	for (i = 0; i < n_possibilities; ++i) {
+		get_world_coordinates(possibilities[i], &row, &col);
+		cell = world[row][col];
+		if((!cell.type) | (cell.type & TREE)) {
+			walkable_cells[found++] = cell_number(row, col);
+		}
+	}
+	return found;
+}
+/*
  * Update rules for animals in the world
  */
  void update_squirrel(int row, int col){
@@ -234,7 +231,7 @@ int get_empty_cells(int *possibilities, int n_possibilities, int *empty_cells) {
 	
 	n_possibilities = get_adjacents(row, col, possibilities);
 	if(n_possibilities) {
-		n_moves = get_empty_cells(possibilities, n_possibilities, may_move);
+		n_moves = get_walkable_cells(possibilities, n_possibilities, may_move);
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen]);
 	}	
@@ -283,8 +280,9 @@ void iterate_subgeneration(int color) {
 		for(j = color; j < max_size; j += 2) {
 			if(world[i][j].type & WOLF)
 				update_wolf(i,j);
-			else if(world[i][j].type & SQUIRREL)
-				;/*update_squirrel(i,j);*/
+			else if( (world[i][j].type & SQUIRREL) || (world[i][j].type & SQUIRRELnTREE) ) {
+				update_squirrel(i,j);
+			}
 			
 			color = (i+1 + color) % 2;
 		}
@@ -384,6 +382,7 @@ void process_generations() {
 	for (i = 0; i < num_gen; ++i) {
 		iterate_subgeneration(RED);
 		iterate_subgeneration(BLACK);
+		print_for_debug();
 	}
 }
 
@@ -394,12 +393,11 @@ int main(int argc, char **argv) {
 		w_starvation_p = atoi(argv[4]);		
 		num_gen = atoi(argv[5]);
 		populate_world_from_file(argv[1]);
-		/*process_generations();*/
+		print_for_debug();
+		printf("-----------\n");
+		process_generations();
 		
-		print_for_debug();
-		update_squirrel(4,4);
-		update_squirrel(3,4);
-		print_for_debug();
+		
 	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
