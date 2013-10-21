@@ -16,7 +16,7 @@
 #define SQUIRREL 2 		/*0010*/
 #define ICE 4			/*0100*/
 #define TREE 8			/*1000*/
-#define SQUIRRELnTREE	16/*(SQUIRREL | TREE)*/
+#define SQUIRRELnTREE (SQUIRREL | TREE)
 
 #define UP 0
 #define RIGHT 1
@@ -44,6 +44,7 @@ struct world {
 	int type; /* Wolf, Squirrel, Ice, Tree (Empty is 0) */
  	int breeding_period;
  	int starvation_period;
+	int current_subgeneration;
  } **world;
  
 /*
@@ -70,30 +71,25 @@ inline int choose_position(int row, int col, int p) {
  *		adjacent positions
  */
 int get_adjacents(int row, int col, int *adjacents) {
-	int i = 0;
 	int found = 0;
 	/*Has up adjacent cell?*/
 	if(row > 0) {
-		adjacents[i++] = cell_number(row - 1, col);
-		found++;
+		adjacents[found++] = cell_number(row - 1, col);
 	}
 
 	/*Has right adjacent cell?*/
 	if(col < max_size - 1) {
-		adjacents[i++] = cell_number(row, col + 1);
-		found++;
+		adjacents[found++] = cell_number(row, col + 1);
 	}
 
 	/*Has down adjacent cell?*/
 	if(row < max_size - 1) {
-		adjacents[i++] = cell_number(row + 1, col);
-		found++;
+		adjacents[found++] = cell_number(row + 1, col);
 	}
 
 	/*Has left adjacent cell?*/
 	if(col > 0) {
-		adjacents[i++] = cell_number(row, col - 1);
-		found++;
+		adjacents[found++] = cell_number(row, col - 1);
 	}
 
 	return found;
@@ -108,51 +104,52 @@ void get_world_coordinates(int cell_number, int *row, int *col) {
 	*row = (cell_number - *col) / max_size;
 }
 
-/*
+/* 
+ * check_breeding_period: Checks if an animal is going to breed
+ */
+int check_breeding_period(int row, int col){
+	struct world *animal = &world[row][col];
+	if(animal->breeding_period) {
+		if(animal->type & SQUIRRELnTREE)
+			animal->type = TREE;
+		else
+			animal->type = EMPTY;
+		return 0;
+	} else {
+		animal->breeding_period = w_breeding_p;
+		animal->starvation_period = w_starvation_p;
+		return 1; 
+	}
+}
+
+
+/* TODO: STARVATION
  * move_to: Move an animal in position (src_row, src_col)
  * 	to cell number dest_c
  */
 void move_to(int src_row, int src_col, int dest_c) {
 	int dest_row, dest_col;
-	int animal_type = world[src_row][src_col].type;
-	int animal_breeding_p = world[src_row][src_col].breeding_period-1;
-	int animal_starvation_p = world[src_row][src_col].starvation_period-1;
-	
-	if(animal_breeding_p==0) {
-		/*completes his breeding period. Updates the new animal with the proper starvation and breeding periods values*/
-		world[src_row][src_col].starvation_period = w_starvation_p;
-		world[src_row][src_col].breeding_period = 0;
-	} else {
-		/*didn't complete his breeding period, the source cell becomes empty*/
-		if(animal_type & SQUIRRELnTREE)
-			world[src_row][src_col].type = TREE;
-		else
-			world[src_row][src_col].type = EMPTY;
-	}
+	struct world *animal = &world[src_row][src_col];
+	struct world *dest_cell;
 	get_world_coordinates(dest_c, &dest_row, &dest_col);
-	if((animal_type & WOLF) && (animal_starvation_p == 0))
-		/*wolf died, no need to update the new cell*/
-		return;
-	else if((world[dest_row][dest_col].type & TREE) && (animal_type & SQUIRREL)) {
-		/*squirrel entering a tree*/
-		world[dest_row][dest_col].type = SQUIRRELnTREE;
-	}
-	else if((world[dest_row][dest_col].type == EMPTY) && (animal_type & SQUIRRELnTREE)) {
-		/*squirrel exiting a tree*/
-		world[dest_row][dest_col].type = SQUIRREL;
-	}
-	else if((world[dest_row][dest_col].type & SQUIRRELnTREE) && (animal_type & SQUIRRELnTREE)) {
-		/*squirrel entering a tree while exiting a tree*/
-		world[dest_row][dest_col].type = SQUIRRELnTREE;
-	} else {
-		/*for all the other situations*/
-		world[dest_row][dest_col].type = animal_type;
-	}
+	dest_cell = &world[dest_row][dest_col];
 	/*update the new values for the breeding and starvation*/
-	world[dest_row][dest_col].breeding_period = animal_breeding_p;
-	world[dest_row][dest_col].starvation_period = animal_starvation_p;
-}
+	*dest_cell = *animal;
 
+	if((dest_cell->type & TREE) && ((animal->type & SQUIRREL) || (animal->type & SQUIRRELnTREE))) {
+		/*squirrel entering a tree*/
+		dest_cell->type = SQUIRRELnTREE;
+	}
+	else if((!dest_cell->type) && (animal->type & SQUIRRELnTREE)) {
+		/*squirrel exiting a tree*/
+		dest_cell->type = SQUIRREL;
+	}
+	if(check_breeding_period(src_row, src_col)) {
+		/*Reset breeding period */
+		dest_cell->breeding_period = w_breeding_p;
+	}
+
+}
 /*
  * get_cells_with_squirrels: Return the number of the cells
  * in possibilities with squirres
@@ -293,6 +290,13 @@ void iterate_subgeneration(int color) {
 		for(j = color; j < max_size; j += 2) {
 			if(world[i][j].type & WOLF)
 				update_wolf(i,j);
+				if(!color) {
+					world[i][j].current_subgeneration = color;
+				}
+				if(!world[i][j].current_subgeneration || world[i][j].current_subgeneration != color) {
+					world[i][j].current_subgeneration = (color + 1) % N_COLORS;
+					world[i][j].breeding_period--;
+				}
 			else if( (world[i][j].type & SQUIRREL) || (world[i][j].type & SQUIRRELnTREE) ) {
 				update_squirrel(i,j);
 			}
@@ -411,7 +415,12 @@ int main(int argc, char **argv) {
 		populate_world_from_file(argv[1]);
 		print_for_debug();
 		printf("-----------\n");
-		process_generations();
+		/*process_generations();*/
+		move_to(1,1, cell_number(0,0));
+		print_for_debug();
+		move_to(0,0, cell_number(2,2));
+		print_for_debug();
+
 		
 		
 	}
