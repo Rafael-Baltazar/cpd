@@ -25,6 +25,8 @@
 
 #define RED 0
 #define BLACK 1
+
+#define N_COLORS 2
 /*
  * VERY DIRTY HACK, GLOBAL VARIABLES, RUN
  */
@@ -45,7 +47,7 @@ struct world {
  	int breeding_period;
  	int starvation_period;
 	int current_subgeneration;
- } **world;
+ } **world, **world2;
  
 /*
  * cell_number: Return the cell number of a given
@@ -395,14 +397,11 @@ void populate_world_from_file(char file_name[]) {
  * process_generations: Process all the generations
  */
 void process_generations() {
-	int i;
+	int i, color;
 	for (i = 0; i < num_gen; ++i) {
-		iterate_subgeneration(RED);
-		print_all_cells();
-		printf("-----\n");
-		iterate_subgeneration(BLACK);
-		print_all_cells();
-		printf("-----\n");
+		for(color = 0; color < N_COLORS; color++) {
+			iterate_subgeneration(color);
+		}
 	}
 }
 
@@ -413,16 +412,15 @@ int main(int argc, char **argv) {
 		w_starvation_p = atoi(argv[4]);		
 		num_gen = atoi(argv[5]);
 		populate_world_from_file(argv[1]);
-		print_for_debug();
+		process_generations();
+		print_all_cells();
+		/*print_for_debug();
 		printf("-----------\n");
-		/*process_generations();*/
+		process_generations();
 		move_to(1,1, cell_number(0,0));
 		print_for_debug();
 		move_to(0,0, cell_number(2,2));
-		print_for_debug();
-
-		
-		
+		print_for_debug();*/
 	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");

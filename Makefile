@@ -18,7 +18,7 @@ $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O) $(FLAGS)
 
 run-serial: serial
-	./$(SERIAL_EXE) data 2 2 2 2
+	./$(SERIAL_EXE) data 2 2 2 4
 
 debug-serial: serial
 	$(DEBUGGER) ./$(SERIAL_EXE)
