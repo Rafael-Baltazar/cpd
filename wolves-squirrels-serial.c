@@ -16,7 +16,7 @@
 #define SQUIRREL 2 		/*0010*/
 #define ICE 4			/*0100*/
 #define TREE 8			/*1000*/
-#define SQUIRRELnTREE (SQUIRREL | TREE)
+#define SQUIRRELnTREE  (SQUIRREL | TREE)
 
 #define UP 0
 #define RIGHT 1
@@ -48,7 +48,39 @@ struct world {
  	int starvation_period;
 	int current_subgeneration;
  } **world, **world2;
+
  
+ /*
+  * TODO: COMMENTS
+  */
+void clean_matrix(struct world** matrix) {
+  int i;		
+  int size = max_size*sizeof(struct world);
+  for(i=0;i<max_size;++i){
+    memset((void*)matrix[i], 0, size);
+  }
+}
+ /*
+  * TODO: COMMENTS
+  */
+void swap_matrix(){
+  struct world** aux;
+  aux = world2;
+  world2 = world;
+  world = aux;  
+}
+
+void copy_matrix(struct world** matrix0, struct world** matrix1 ){
+  int i, size;
+  size = max_size*sizeof(struct world);
+  for(i=0;i<max_size;++i){
+    memcpy(matrix1[i], matrix0[i], size);
+  }
+   
+  
+}
+
+
 /*
  * cell_number: Return the cell number of a given
  *	matrix position (row, col)
@@ -106,13 +138,13 @@ void get_world_coordinates(int cell_number, int *row, int *col) {
 	*row = (cell_number - *col) / max_size;
 }
 
-/* 
+/* FIXME: allways breeding- writing in the wrong matrix
  * check_breeding_period: Checks if an animal is going to breed
  */
 int check_breeding_period(int row, int col){
-	struct world *animal = &world[row][col];
+	struct world *animal = &world2[row][col];
 	if(animal->breeding_period) {
-		if(animal->type & SQUIRRELnTREE)
+		if(animal->type == SQUIRRELnTREE)
 			animal->type = TREE;
 		else
 			animal->type = EMPTY;
@@ -134,15 +166,15 @@ void move_to(int src_row, int src_col, int dest_c) {
 	struct world *animal = &world[src_row][src_col];
 	struct world *dest_cell;
 	get_world_coordinates(dest_c, &dest_row, &dest_col);
-	dest_cell = &world[dest_row][dest_col];
+	dest_cell = &world2[dest_row][dest_col];
 	/*update the new values for the breeding and starvation*/
 	*dest_cell = *animal;
 
-	if((dest_cell->type & TREE) && ((animal->type & SQUIRREL) || (animal->type & SQUIRRELnTREE))) {
+	if((dest_cell->type & TREE) && ((animal->type & SQUIRREL) || (animal->type == SQUIRRELnTREE))) {
 		/*squirrel entering a tree*/
 		dest_cell->type = SQUIRRELnTREE;
 	}
-	else if((!dest_cell->type) && (animal->type & SQUIRRELnTREE)) {
+	else if((!dest_cell->type) && (animal->type == SQUIRRELnTREE)) {
 		/*squirrel exiting a tree*/
 		dest_cell->type = SQUIRREL;
 	}
@@ -299,7 +331,7 @@ void iterate_subgeneration(int color) {
 					world[i][j].current_subgeneration = (color + 1) % N_COLORS;
 					world[i][j].breeding_period--;
 				}
-			else if( (world[i][j].type & SQUIRREL) || (world[i][j].type & SQUIRRELnTREE) ) {
+			else if( (world[i][j].type & SQUIRREL) || (world[i][j].type == SQUIRRELnTREE) ) {
 				update_squirrel(i,j);
 			}
 			
@@ -368,10 +400,13 @@ void populate_world_from_file(char file_name[]) {
 	} else {
 		fscanf(fp, "%d", &max_size);
 		world = (struct world**) malloc(max_size*sizeof(*world));
+		world2 = (struct world**) malloc(max_size*sizeof(*world));
 		for(k=0;k<max_size;++k) {
 			size = max_size*sizeof(struct world);
 			world[k] = (struct world*) malloc(size);
 			memset((void*)world[k], 0, size);
+			world2[k] = (struct world*) malloc(size);
+			memset((void*)world2[k], 0, size);
 		}
 		/*populating*/
 		while(fscanf(fp, "%d %d %c", &i, &j, &a) != EOF) {
@@ -412,8 +447,8 @@ int main(int argc, char **argv) {
 		w_starvation_p = atoi(argv[4]);		
 		num_gen = atoi(argv[5]);
 		populate_world_from_file(argv[1]);
-		process_generations();
-		print_all_cells();
+		/*process_generations();
+		print_all_cells();*/
 		/*print_for_debug();
 		printf("-----------\n");
 		process_generations();
@@ -421,6 +456,28 @@ int main(int argc, char **argv) {
 		print_for_debug();
 		move_to(0,0, cell_number(2,2));
 		print_for_debug();*/
+		copy_matrix(world, world2);
+		move_to(1,1, cell_number(0,0));
+		printf("Antiga:\n");
+		print_for_debug();
+		swap_matrix();
+		printf("Nova:\n");
+		print_for_debug();
+		clean_matrix(world2);
+		
+		
+		copy_matrix(world, world2);
+		move_to(0,0, cell_number(1,1));
+		printf("Antiga:\n");
+		print_for_debug();
+		swap_matrix();
+		printf("Nova:\n");
+		print_for_debug();
+		clean_matrix(world2);
+		
+		
+		
+		
 	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
