@@ -138,20 +138,26 @@ void get_world_coordinates(int cell_number, int *row, int *col) {
 	*row = (cell_number - *col) / max_size;
 }
 
-/* FIXME: allways breeding- writing in the wrong matrix
+/* 
  * check_breeding_period: Checks if an animal is going to breed
  */
 int check_breeding_period(int row, int col){
 	struct world *animal = &world2[row][col];
+	int saved_type = animal->type;
 	if(animal->breeding_period) {
-		if(animal->type == SQUIRRELnTREE)
+		if(saved_type == SQUIRRELnTREE)
 			animal->type = TREE;
 		else
 			animal->type = EMPTY;
 		return 0;
 	} else {
-		animal->breeding_period = w_breeding_p;
-		animal->starvation_period = w_starvation_p;
+		/*load the breeding and starvation values into the new animal*/
+		if(saved_type & SQUIRREL || saved_type == SQUIRRELnTREE)
+			animal->breeding_period = s_breeding_p;
+		else if(saved_type & WOLF) {
+			animal->breeding_period = w_breeding_p;
+			animal->starvation_period = w_starvation_p;
+		}
 		return 1; 
 	}
 }
@@ -162,27 +168,31 @@ int check_breeding_period(int row, int col){
  * 	to cell number dest_c
  */
 void move_to(int src_row, int src_col, int dest_c) {
-	int dest_row, dest_col;
+	int dest_row, dest_col, saved_type;
 	struct world *animal = &world[src_row][src_col];
 	struct world *dest_cell;
 	get_world_coordinates(dest_c, &dest_row, &dest_col);
 	dest_cell = &world2[dest_row][dest_col];
 	/*update the new values for the breeding and starvation*/
+	saved_type = dest_cell->type;
 	*dest_cell = *animal;
-
-	if((dest_cell->type & TREE) && ((animal->type & SQUIRREL) || (animal->type == SQUIRRELnTREE))) {
+	if((saved_type & TREE) && ((animal->type & SQUIRREL) || (animal->type == SQUIRRELnTREE))) {
 		/*squirrel entering a tree*/
 		dest_cell->type = SQUIRRELnTREE;
 	}
-	else if((!dest_cell->type) && (animal->type == SQUIRRELnTREE)) {
+	else if((!saved_type) && (animal->type == SQUIRRELnTREE)) {
 		/*squirrel exiting a tree*/
 		dest_cell->type = SQUIRREL;
 	}
+	saved_type=dest_cell->type;
 	if(check_breeding_period(src_row, src_col)) {
-		/*Reset breeding period */
-		dest_cell->breeding_period = w_breeding_p;
+		/*reset breeding period on the mother*/
+		if(saved_type & WOLF)
+			dest_cell->breeding_period = w_breeding_p;
+		else if(saved_type & SQUIRREL || saved_type == SQUIRRELnTREE) {
+			dest_cell->breeding_period = s_breeding_p;
+		}
 	}
-
 }
 /*
  * get_cells_with_squirrels: Return the number of the cells
@@ -314,31 +324,6 @@ void update_wolf(int row, int col) {
 	}
 }
 
-/*
- * Updates only the wolf and squirrels that belong to a specific subgeneration.
- * color: the color of the subgeneration to be updated.
- */
-void iterate_subgeneration(int color) {
-	int i, j;
-	for(i = 0; i < max_size; i++) {
-		for(j = color; j < max_size; j += 2) {
-			if(world[i][j].type & WOLF)
-				update_wolf(i,j);
-				if(!color) {
-					world[i][j].current_subgeneration = color;
-				}
-				if(!world[i][j].current_subgeneration || world[i][j].current_subgeneration != color) {
-					world[i][j].current_subgeneration = (color + 1) % N_COLORS;
-					world[i][j].breeding_period--;
-				}
-			else if( (world[i][j].type & SQUIRREL) || (world[i][j].type == SQUIRRELnTREE) ) {
-				update_squirrel(i,j);
-			}
-			
-			color = (i+1 + color) % 2;
-		}
-	}
-}
 
 /*prints the world*/
 void print_all_cells(){
@@ -413,15 +398,20 @@ void populate_world_from_file(char file_name[]) {
 			if(a=='w') {
 				world[i][j].type = WOLF;
 				world[i][j].starvation_period = w_starvation_p;
+				world[i][j].breeding_period = w_breeding_p;
 			}
-			else if(a=='s')
+			else if(a=='s') {
 				world[i][j].type = SQUIRREL;
+				world[i][j].breeding_period = s_breeding_p;
+			}
 			else if(a=='i')
 				world[i][j].type = ICE;
 			else if(a=='t')
 				world[i][j].type = TREE;
-			else if(a=='$')
+			else if(a=='$') {
 				world[i][j].type = SQUIRRELnTREE;
+				world[i][j].breeding_period = s_breeding_p;
+			}
 			else 
 				world[i][j].type = EMPTY;	
 		}
@@ -429,14 +419,44 @@ void populate_world_from_file(char file_name[]) {
 }
 
 /*
+ * Updates only the wolf and squirrels that belong to a specific subgeneration.
+ * color: the color of the subgeneration to be updated.
+ */
+void iterate_subgeneration(int color) {
+	int i, j;
+	for(i = 0; i < max_size; i++) {
+		for(j = color; j < max_size; j += 2) {
+			if(world[i][j].type & WOLF)
+				update_wolf(i,j);
+				if(!color) {
+					world[i][j].current_subgeneration = color;
+				}
+				if(!world[i][j].current_subgeneration || world[i][j].current_subgeneration != color) {
+					world[i][j].current_subgeneration = (color + 1) % N_COLORS;
+					world[i][j].breeding_period--;
+				}
+			else if( (world[i][j].type & SQUIRREL) || (world[i][j].type == SQUIRRELnTREE) ) {
+				update_squirrel(i,j);
+			}
+			color = (i+1 + color) % 2;
+		}	
+	}
+}
+
+
+/* FIXME: the new functions aren't working 
  * process_generations: Process all the generations
  */
 void process_generations() {
 	int i, color;
 	for (i = 0; i < num_gen; ++i) {
+		copy_matrix(world, world2);
 		for(color = 0; color < N_COLORS; color++) {
 			iterate_subgeneration(color);
+			swap_matrix();
 		}
+		swap_matrix();
+		clean_matrix(world2);
 	}
 }
 
@@ -447,15 +467,11 @@ int main(int argc, char **argv) {
 		w_starvation_p = atoi(argv[4]);		
 		num_gen = atoi(argv[5]);
 		populate_world_from_file(argv[1]);
-		/*process_generations();
-		print_all_cells();*/
-		/*print_for_debug();
-		printf("-----------\n");
 		process_generations();
-		move_to(1,1, cell_number(0,0));
-		print_for_debug();
-		move_to(0,0, cell_number(2,2));
-		print_for_debug();*/
+		print_all_cells();
+		
+		/*
+		printf("vals: %d\n", world[1][1].breeding_period);
 		copy_matrix(world, world2);
 		move_to(1,1, cell_number(0,0));
 		printf("Antiga:\n");
@@ -464,18 +480,32 @@ int main(int argc, char **argv) {
 		printf("Nova:\n");
 		print_for_debug();
 		clean_matrix(world2);
+		world[0][0].breeding_period-=1;
+		
 		
 		
 		copy_matrix(world, world2);
-		move_to(0,0, cell_number(1,1));
-		printf("Antiga:\n");
+		move_to(0,0, cell_number(0,1));
+		swap_matrix();
 		print_for_debug();
+		clean_matrix(world2);
+		world[0][1].breeding_period-=1;
+		
+		copy_matrix(world, world2);
+		move_to(0,1, cell_number(0,2));
 		swap_matrix();
 		printf("Nova:\n");
 		print_for_debug();
 		clean_matrix(world2);
+		world[0][2].breeding_period-=1;
 		
-		
+		copy_matrix(world, world2);
+		move_to(0,2, cell_number(0,3));
+		swap_matrix();
+		printf("Nova:\n");
+		print_for_debug();
+		clean_matrix(world2);
+		world[0][2].breeding_period-=1;*/
 		
 		
 	}
