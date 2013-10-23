@@ -152,7 +152,7 @@ int get_adjacents(int row, int col, int *adjacents) {
  * get_world_coordinates: Return in row and col the right
  *	coordinates of the matric of a given cell number
  */
-void get_world_coordinates(int cell_number, int *row, int *col) {
+inline void get_world_coordinates(int cell_number, int *row, int *col) {
 	*col = cell_number % max_size;
 	*row = (cell_number - *col) / max_size;
 }
@@ -218,7 +218,7 @@ int get_cells_with_squirrels(struct world **world, int *possibilities, int n_pos
 	{
 		get_world_coordinates(possibilities[i], &row, &col);
 		cell = world[row][col];
-		if(cell.type & WOLF) {
+		if(cell.type & SQUIRREL) {
 			squirrels[found] = cell_number(row, col);
 			found++;
 		}
@@ -271,6 +271,10 @@ int get_walkable_cells(struct world **world, int *possibilities, int n_possibili
 	return found;
 }
 
+/*
+   eat_squirrel: Put empty content in the squirrel cell (in squirrel_world))
+     and reset starvation period
+   */
 void eat_squirrel(struct world **wolf_world, struct world **squirrel_world, int wolf_row, int wolf_col, int squirrel_cell) {
 	int row, col;
 	struct world *cell;
@@ -297,15 +301,23 @@ void update_squirrel(struct world **world, struct world **to_move, int row, int 
 		move_to(row, col, may_move[chosen], world, to_move);
 	}	
  }
+
+inline void kill_wolf(struct world *wolf) {
+    memset(wolf, 0, sizeof(struct world));
+}
  
 void update_wolf(struct world **world, struct world **to_move, int row, int col) {
 	int possibilities[N_ADJACENTS];
 	int may_move[N_ADJACENTS];
 	int n_possibilities, n_squirrels, n_empty;
-	int choosed;
-
+	int chosen;
+    struct world *wolf = &world[row][col];
 	n_possibilities = get_adjacents(row, col, possibilities);
 
+    if(!wolf->starvation_period) {
+        kill_wolf(wolf);
+        return;
+    }
 	/*If has adjacents to choose*/
 	if(n_possibilities) {
 		/*Check for squirrels*/
@@ -313,11 +325,11 @@ void update_wolf(struct world **world, struct world **to_move, int row, int col)
 		if(n_squirrels) {
 			/*At least one squirrel has been found
 				Choose one of them*/
-			choosed = choose_position(row, col, n_squirrels);
+			chosen = choose_position(row, col, n_squirrels);
 			/* Eat the squirrel */
-			eat_squirrel(world, to_move, row, col, may_move[choosed]);
+			eat_squirrel(world, to_move, row, col, may_move[chosen]);
 			/*Move to that position*/
-			move_to(row, col, may_move[choosed], world, to_move);
+			move_to(row, col, may_move[chosen], world, to_move);
 		}
 
 		else {
@@ -325,12 +337,31 @@ void update_wolf(struct world **world, struct world **to_move, int row, int col)
 				Let's check if there's any empty cell*/
 			n_empty = get_empty_cells(to_move, possibilities, n_possibilities, may_move);
 			if(n_empty) {
-				choosed = choose_position(row, col, n_empty);
+				chosen = choose_position(row, col, n_empty);
 				/*Move to that position*/
-				move_to(row, col, may_move[choosed], world, to_move);
+				move_to(row, col, may_move[chosen], world, to_move);
 			}
 		}
 	}
+}
+
+void update_periods() {
+    int i, j, color;
+    struct world *cell;
+
+    for(i = 0; i < max_size; i++) {
+        for(j = 0; j < max_size; j++) {
+            color = get_cell_color(i, j);
+            cell = &worlds[color][i][j];
+            if(cell->type & WOLF) {
+                cell->breeding_period--;
+                cell->starvation_period--;
+            }
+            else if(cell->type & SQUIRREL) {
+                cell->breeding_period--;
+            }
+        }
+    }
 }
 
 /*
@@ -352,17 +383,11 @@ void iterate_subgeneration(int color) {
     
 		for(j = start_col; j < max_size; j += 2) {
 			printf("i = %d j = %d\n", i, j);
-            if(current[i][j].type & WOLF)
+            if(current[i][j].type & WOLF) {
 				update_wolf(current, to_move, i,j);
-				if(!color) {
-					current[i][j].current_subgeneration = color;
-				}
-				if(!current[i][j].current_subgeneration || current[i][j].current_subgeneration != color) {
-					current[i][j].current_subgeneration = (color + 1) % N_COLORS;
-					current[i][j].breeding_period--;
-				}
-			else if( (current[i][j].type & SQUIRREL) || (current[i][j].type == SQUIRRELnTREE) ) {
-				update_squirrel(current, to_move, i,j);
+            }
+			else if(current[i][j].type & SQUIRREL) {
+                update_squirrel(current, to_move, i,j);
 			}
 			
 			/*color = (i+1 + color) % 2;*/
@@ -450,15 +475,21 @@ void populate_world_from_file(char file_name[]) {
 			if(a=='w') {
 				worlds[color][i][j].type = WOLF;
 				worlds[color][i][j].starvation_period = w_starvation_p;
+                worlds[color][i][j].breeding_period = w_breeding_p;
 			}
-			else if(a=='s')
+			else if(a=='s') {
 				worlds[color][i][j].type = SQUIRREL;
+                worlds[color][i][j].breeding_period = w_breeding_p;
+            }
+                
 			else if(a=='i')
 				worlds[color][i][j].type = ICE;
 			else if(a=='t')
 				worlds[color][i][j].type = TREE;
-			else if(a=='$')
+			else if(a=='$') {
 				worlds[color][i][j].type = SQUIRRELnTREE;
+                worlds[color][i][j].breeding_period = w_breeding_p;
+            }
 			else 
 				worlds[color][i][j].type = EMPTY;	
 		}
@@ -474,6 +505,7 @@ void process_generations() {
 		for(color = 0; color < N_COLORS; color++) {
 			iterate_subgeneration(color);
 		}
+        update_periods();
 	}
 }
 
