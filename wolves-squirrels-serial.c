@@ -157,7 +157,7 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
 	*row = (cell_number - *col) / max_size;
 }
 
-/* FIXME: allways breeding- writing in the wrong matrix
+/* 
  * check_breeding_period: Checks if an animal is going to breed
  */
 int check_breeding_period(int row, int col, struct world **world) {
@@ -197,11 +197,10 @@ void solve_conflict(struct world *source, struct world *destination) {
 	if((source->type & WOLF) && (destination->type & WOLF)) {
 		solve_wolves_conflict(source, destination);
 	}
-	else if((source-type & SQUIRREL) && (destination->type & SQUIRREL)) {
+	else if((source->type & SQUIRREL) && (destination->type & SQUIRREL)) {
 		solve_squirrels_conflict(source, destination);
 	}
 }
-
 
 /* TODO: STARVATION
  * move_to: Move an animal in position (src_row, src_col)
@@ -220,19 +219,20 @@ void move_to(int src_row, int src_col, int dest_c, struct world **src, struct wo
 		solve_conflict(animal, dest_cell);
 	}
 	else {
-
+		;
 	}
-
 
 	/*update the new values for the breeding and starvation*/
 	*dest_cell = *animal;
 
 	if((dest_cell->type & TREE) && ((animal->type & SQUIRREL) || (animal->type == SQUIRRELnTREE))) {
 		/*squirrel entering a tree*/
+		*dest_cell = *animal;
 		dest_cell->type = SQUIRRELnTREE;
 	}
 	else if((!dest_cell->type) && (animal->type == SQUIRRELnTREE)) {
 		/*squirrel exiting a tree*/
+		*dest_cell = *animal;
 		dest_cell->type = SQUIRREL;
 	}
 	if(check_breeding_period(src_row, src_col, src)) {
@@ -291,9 +291,10 @@ int get_empty_cells(struct world **world, int *possibilities, int n_possibilitie
  * get_walkable_cells: Return the number of the cells
  * in possibilities that are empty or with trees (for squirrel movement)
  *	walkable_cells: Array with cell numbers of cells that are 'walk-able'
+ * types_to_exclude: cells with one of these types aren't walkable
  */
 
-int get_walkable_cells(struct world **world, int *possibilities, int n_possibilities, int *walkable_cells){
+int get_walkable_cells(struct world **world, int *possibilities, int n_possibilities, int *walkable_cells, int types_to_exclude){
 	int i;
 	int found = 0;
 	struct world cell;
@@ -302,7 +303,7 @@ int get_walkable_cells(struct world **world, int *possibilities, int n_possibili
 	for (i = 0; i < n_possibilities; ++i) {
 		get_world_coordinates(possibilities[i], &row, &col);
 		cell = world[row][col];
-		if((!cell.type) | (cell.type & TREE)) {
+		if(!(cell.type & types_to_exclude)) {
 			walkable_cells[found++] = cell_number(row, col);
 		}
 	}
@@ -313,15 +314,11 @@ int get_walkable_cells(struct world **world, int *possibilities, int n_possibili
    eat_squirrel: Put empty content in the squirrel cell (in squirrel_world))
      and reset starvation period
    */
-void eat_squirrel(struct world **wolf_world, struct world **squirrel_world, int wolf_row, int wolf_col, int squirrel_cell) {
-	int row, col;
-	struct world *cell;
-	get_world_coordinates(squirrel_cell, &row, &col);
-	cell = &squirrel_world[row][col];
-	cell->type = EMPTY;
-	cell->starvation_period = 0;
-	cell->breeding_period = 0;
-	wolf_world[wolf_row][wolf_col].starvation_period = w_starvation_p;
+void eat_squirrel(struct world *wolf, struct world *squirrel) {
+	squirrel->type = EMPTY;
+	squirrel->starvation_period = 0;
+	squirrel->breeding_period = 0;
+	wolf->starvation_period = w_starvation_p;
 }
 /*
  * Update rules for animals in the world
@@ -334,7 +331,7 @@ void update_squirrel(struct world **world, struct world **to_move, int row, int 
 	
 	n_possibilities = get_adjacents(row, col, possibilities);
 	if(n_possibilities) {
-		n_moves = get_walkable_cells(to_move, possibilities, n_possibilities, may_move);
+		n_moves = get_walkable_cells(to_move, possibilities, n_possibilities, may_move, ICE);
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen], world, to_move);
 	}	
@@ -348,7 +345,7 @@ void update_wolf(struct world **world, struct world **to_move, int row, int col)
 	int possibilities[N_ADJACENTS];
 	int may_move[N_ADJACENTS];
 	int n_possibilities, n_squirrels, n_empty;
-	int chosen;
+	int chosen, s_row, s_col;
     struct world *wolf = &world[row][col];
 	n_possibilities = get_adjacents(row, col, possibilities);
 
@@ -365,7 +362,9 @@ void update_wolf(struct world **world, struct world **to_move, int row, int col)
 				Choose one of them*/
 			chosen = choose_position(row, col, n_squirrels);
 			/* Eat the squirrel */
-			eat_squirrel(world, to_move, row, col, may_move[chosen]);
+			get_world_coordinates(may_move[chosen], &s_row, &s_col);
+			eat_squirrel(wolf, &to_move[s_row][s_col]);
+			
 			/*Move to that position*/
 			move_to(row, col, may_move[chosen], world, to_move);
 		}
@@ -373,7 +372,7 @@ void update_wolf(struct world **world, struct world **to_move, int row, int col)
 		else {
 			/*No squirrels
 				Let's check if there's any empty cell*/
-			n_empty = get_empty_cells(to_move, possibilities, n_possibilities, may_move);
+			n_empty = get_walkable_cells(to_move, possibilities, n_possibilities, may_move, ICE | TREE);
 			if(n_empty) {
 				chosen = choose_position(row, col, n_empty);
 				/*Move to that position*/
@@ -410,7 +409,7 @@ void iterate_subgeneration(int color) {
 	int i, j, start_col;
     struct world **current = worlds[color];
     struct world **to_move = worlds[(color + 1) % N_WORLDS];
-    printf("Color %d\n", color);
+
 	for(i = 0; i < max_size; i++) {
         if(get_cell_color(i, 0) == color) {
             start_col = 0;
@@ -420,7 +419,6 @@ void iterate_subgeneration(int color) {
         }
     
 		for(j = start_col; j < max_size; j += 2) {
-			printf("i = %d j = %d\n", i, j);
             if(current[i][j].type & WOLF) {
 				update_wolf(current, to_move, i,j);
             }
@@ -542,6 +540,8 @@ void process_generations() {
 	for (i = 0; i < num_gen; ++i) {
 		for(color = 0; color < N_COLORS; color++) {
 			iterate_subgeneration(color);
+			print_all_cells();
+			printf("----\n");
 		}
         update_periods();
 	}
