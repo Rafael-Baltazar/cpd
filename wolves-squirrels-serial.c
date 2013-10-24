@@ -160,17 +160,24 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
 /* 
  * check_breeding_period: Checks if an animal is going to breed
  */
-int check_breeding_period(int row, int col, struct world **world) {
+int check_breeding_period(int row, int col, struct world **world){
 	struct world *animal = &world[row][col];
+	int saved_type = animal->type;
+	
 	if(animal->breeding_period) {
-		if(animal->type == SQUIRRELnTREE)
+		if(saved_type == SQUIRRELnTREE)
 			animal->type = TREE;
 		else
 			animal->type = EMPTY;
 		return 0;
 	} else {
-		animal->breeding_period = w_breeding_p;
-		animal->starvation_period = w_starvation_p;
+		/*load the breeding and starvation values into the new animal*/
+		if(saved_type & SQUIRREL || saved_type == SQUIRRELnTREE)
+			animal->breeding_period = s_breeding_p;
+		else if(saved_type & WOLF) {
+			animal->breeding_period = w_breeding_p;
+			animal->starvation_period = w_starvation_p;
+		}
 		return 1; 
 	}
 }
@@ -536,7 +543,7 @@ void populate_world_from_file(char file_name[]) {
 	}
 }
 
-/*
+/* FIXME: the new functions aren't working 
  * process_generations: Process all the generations
  */
 void process_generations() {
@@ -560,37 +567,6 @@ int main(int argc, char **argv) {
 		populate_world_from_file(argv[1]);
         process_generations();
         print_all_cells();
-		/*process_generations();
-		print_all_cells();*/
-		/*print_for_debug();
-		printf("-----------\n");
-		process_generations();
-		move_to(1,1, cell_number(0,0));
-		print_for_debug();
-		move_to(0,0, cell_number(2,2));
-		print_for_debug();*/
-		/*copy_matrix(world, world2);
-		move_to(1,1, cell_number(0,0));
-		printf("Antiga:\n");
-		print_for_debug();
-		swap_matrix();
-		printf("Nova:\n");
-		print_for_debug();
-		clean_matrix(world2);
-		
-		
-		copy_matrix(world, world2);
-		move_to(0,0, cell_number(1,1));
-		printf("Antiga:\n");
-		print_for_debug();
-		swap_matrix();
-		printf("Nova:\n");
-		print_for_debug();
-		clean_matrix(world2);*/
-		
-		
-		
-		
 	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
