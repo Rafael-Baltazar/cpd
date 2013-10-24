@@ -200,9 +200,12 @@ void solve_conflict(struct world *source, struct world *destination) {
 	else if((source->type & SQUIRREL) && (destination->type & SQUIRREL)) {
 		solve_squirrels_conflict(source, destination);
 	}
+	else if((source->type & SQUIRREL) && (destination->type & WOLF)) {
+		/* Squirrel is eaten by the wolf */
+	}
 }
 
-/* TODO: STARVATION
+/* 
  * move_to: Move an animal in position (src_row, src_col)
  * 	to cell number dest_c
  */
@@ -219,27 +222,28 @@ void move_to(int src_row, int src_col, int dest_c, struct world **src, struct wo
 		solve_conflict(animal, dest_cell);
 	}
 	else {
-		;
-	}
-
-	/*update the new values for the breeding and starvation*/
-	*dest_cell = *animal;
-
-	if((dest_cell->type & TREE) && ((animal->type & SQUIRREL) || (animal->type == SQUIRRELnTREE))) {
-		/*squirrel entering a tree*/
 		*dest_cell = *animal;
-		dest_cell->type = SQUIRRELnTREE;
+		/* Prevent trees to move */
+		dest_cell->type = animal->type & !TREE;
 	}
-	else if((!dest_cell->type) && (animal->type == SQUIRRELnTREE)) {
-		/*squirrel exiting a tree*/
-		*dest_cell = *animal;
-		dest_cell->type = SQUIRREL;
-	}
+	
+	/* Check what source cell content will be */
 	if(check_breeding_period(src_row, src_col, src)) {
 		/*Reset breeding period */
 		dest_cell->breeding_period = w_breeding_p;
 	}
+	else {
+		/* If source cell has a tree */
+		if(animal->type & TREE) {
+			animal->type = TREE;
+		}
+		else {
+			animal->type = EMPTY;
+		}
 
+		animal->starvation_period = 0;
+		animal->breeding_period = 0;
+	}
 }
 /*
  * get_cells_with_squirrels: Return the number of the cells
