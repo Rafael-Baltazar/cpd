@@ -175,6 +175,33 @@ int check_breeding_period(int row, int col, struct world **world) {
 	}
 }
 
+void solve_wolves_conflict(struct world *wolf1, struct world *wolf2) {
+	if(wolf1->starvation_period > wolf2->starvation_period) {
+		*wolf2 = *wolf1;
+	}
+
+	else if(wolf1->starvation_period == wolf2->starvation_period) {
+		if(wolf1->breeding_period < wolf2->breeding_period) {
+			*wolf2 = *wolf1;
+		}	
+	}
+}
+
+void solve_squirrels_conflict(struct world *squirrel1, struct world *squirrel2) {
+	if(squirrel1->breeding_period < squirrel2->breeding_period) {
+		*squirrel2 = *squirrel1;
+	}	
+}
+
+void solve_conflict(struct world *source, struct world *destination) {
+	if((source->type & WOLF) && (destination->type & WOLF)) {
+		solve_wolves_conflict(source, destination);
+	}
+	else if((source-type & SQUIRREL) && (destination->type & SQUIRREL)) {
+		solve_squirrels_conflict(source, destination);
+	}
+}
+
 
 /* TODO: STARVATION
  * move_to: Move an animal in position (src_row, src_col)
@@ -186,6 +213,17 @@ void move_to(int src_row, int src_col, int dest_c, struct world **src, struct wo
 	struct world *dest_cell;
 	get_world_coordinates(dest_c, &dest_row, &dest_col);
 	dest_cell = &dest[dest_row][dest_col];
+
+	/* Check what destination cell content will be*/
+	/* If destination cell is not empty */
+	if(dest_cell->type) {
+		solve_conflict(animal, dest_cell);
+	}
+	else {
+
+	}
+
+
 	/*update the new values for the breeding and starvation*/
 	*dest_cell = *animal;
 
