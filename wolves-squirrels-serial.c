@@ -224,7 +224,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **src, struct wo
 	else {
 		*dest_cell = *animal;
 		/* Prevent trees to move */
-		dest_cell->type = animal->type & !TREE;
+		dest_cell->type = animal->type & ~TREE;
 	}
 	
 	/* Check what source cell content will be */
