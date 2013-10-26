@@ -448,6 +448,7 @@ void print_all_cells(){
 	char type;
 	struct world cell;
 
+	printf("%d\n", max_size);
 	for(i = 0; i < max_size; i++) {
 		for(j = 0; j < max_size; j++) {
 			color = get_cell_color(i, j);
