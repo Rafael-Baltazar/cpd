@@ -6,6 +6,7 @@ SERIAL_O=wolves-squirrels-serial.o
 CC=gcc
 FLAGS=-Wall -pedantic -g
 DEBUGGER=ddd
+TMP_OUT=tmp.out
 
 all: serial	
 
@@ -23,5 +24,19 @@ run-serial: serial
 debug-serial: serial
 	$(DEBUGGER) ./$(SERIAL_EXE)
 
+test-serial: test-serial1 test-serial-starvation
+
+test-serial1: serial
+	./$(SERIAL_EXE) ex1.in 9 9 2 2 > $(TMP_OUT)
+	diff $(TMP_OUT) ex1.out
+
+test-serial-starvation: serial
+	./$(SERIAL_EXE) ex_starvation.in 9 9 2 3 > $(TMP_OUT)
+	diff $(TMP_OUT) ex_starvation.out
+
+test-serial-feed: serial
+	./$(SERIAL_EXE) ex_feed.in 9 9 2 3 > $(TMP_OUT)
+	diff $(TMP_OUT) ex_feed.out
+
 clean:
-	rm -rf *.o $(SERIAL_EXE)
+	rm -rf *.o $(SERIAL_EXE) $(TMP_OUT)
