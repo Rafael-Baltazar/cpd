@@ -27,7 +27,6 @@
 #define BLACK 1
 
 #define N_COLORS 2
-#define N_WORLDS 2
 
 int max_size;
 
@@ -46,38 +45,8 @@ struct world {
  	int breeding_period;
  	int starvation_period;
 	int current_subgeneration;
- } **worlds[2]; 
+ } **worlds[N_COLORS]; 
  
- /*
-  * TODO: COMMENTS
-  */
-/*void clean_matrix(struct world** matrix) {
-  int i;		
-  int size = max_size*sizeof(struct world);
-  for(i=0;i<max_size;++i){
-    memset((void*)matrix[i], 0, size);
-  }
-}*/
- /*
-  * TODO: COMMENTS
-  */
-/*
-void swap_matrix(){
-  struct world** aux;
-  aux = world2;
-  world2 = world;
-  world = aux;  
-}*/
-
-void copy_matrix(struct world** matrix0, struct world** matrix1 ){
-  int i, size;
-  size = max_size*sizeof(struct world);
-  for(i=0;i<max_size;++i){
-    memcpy(matrix1[i], matrix0[i], size);
-  }  
-}
-
-
 /*
  * cell_number: Return the cell number of a given
  *	matrix position (row, col)
@@ -275,6 +244,7 @@ int get_cells_with_squirrels(struct world **world, int *possibilities, int n_pos
 
 	return found;
 }
+
 /*
  * get_empty_cells: Return the number of the cells
  * in possibilities that are empty
@@ -331,6 +301,7 @@ void eat_squirrel(struct world *wolf, struct world *squirrel) {
 	squirrel->breeding_period = 0;
 	wolf->starvation_period = w_starvation_p;
 }
+
 /*
  * Update rules for animals in the world
  */
@@ -419,7 +390,7 @@ void update_periods() {
 void iterate_subgeneration(int color) {
 	int i, j, start_col;
     struct world **current = worlds[color];
-    struct world **to_move = worlds[(color + 1) % N_WORLDS];
+    struct world **to_move = worlds[(color + 1) % N_COLORS];
 
 	for(i = 0; i < max_size; i++) {
         if(get_cell_color(i, 0) == color) {
@@ -436,8 +407,6 @@ void iterate_subgeneration(int color) {
 			else if(current[i][j].type & SQUIRREL) {
                 update_squirrel(current, to_move, i,j);
 			}
-			
-			/*color = (i+1 + color) % 2;*/
 		}
 	}
 }
@@ -499,6 +468,9 @@ void populate_world_from_file(char file_name[]) {
 	FILE *fp;
 	int i, j, k, size, row_size, color;
 	char a;
+
+	struct world *all_positions;
+
    /* struct world ***right_world; */
 	fp = fopen(file_name,"r");
 
@@ -507,8 +479,19 @@ void populate_world_from_file(char file_name[]) {
 	} else {
 		fscanf(fp, "%d", &max_size);
         row_size = max_size*sizeof(struct world*);
-		worlds[0] = (struct world**) malloc(row_size);
-		worlds[1] = (struct world**) malloc(row_size);
+		
+		for(i = 0; i < N_COLORS; i++) {
+			worlds[i] = (struct world**) malloc(row_size);
+		}
+
+		for(i = 0; i < N_COLORS; i++) {
+			all_positions = (struct world*) malloc(max_size * max_size * sizeof(struct world));
+			for(j = 0; j < max_size; j++) {
+				worlds[i][j] = all_positions + (j * max_size);
+			}
+		}
+
+		/* Set each world position with zeros */
 		for(k=0;k<max_size;++k) {
 			size = max_size*sizeof(struct world);
 			worlds[0][k] = (struct world*) malloc(size);
@@ -538,13 +521,18 @@ void populate_world_from_file(char file_name[]) {
 				worlds[color][i][j].type = SQUIRRELnTREE;
                 worlds[color][i][j].breeding_period = w_breeding_p;
             }
-			else 
-				worlds[color][i][j].type = EMPTY;	
+			else {
+				printf("Error reading input file\n");
+				fclose(fp);
+				exit(-1);
+			}	
 		}
+
+		fclose(fp);
 	}
 }
 
-/* FIXME: the new functions aren't working 
+/*  
  * process_generations: Process all the generations
  */
 void process_generations() {
@@ -552,8 +540,6 @@ void process_generations() {
 	for (i = 0; i < num_gen; ++i) {
 		for(color = 0; color < N_COLORS; color++) {
 			iterate_subgeneration(color);
-			/*print_all_cells();
-			printf("----\n");*/
 		}
         update_periods();
 	}
