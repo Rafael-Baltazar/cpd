@@ -20,6 +20,9 @@ $(SERIAL_O): $(SERIAL_C)
 run-serial: serial
 	./$(SERIAL_EXE) data 2 2 4 3
 
+test-serial: serial
+	sh test.sh
+
 debug-serial: serial
 	$(DEBUGGER) ./$(SERIAL_EXE)
 

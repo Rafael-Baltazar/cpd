@@ -551,8 +551,8 @@ void process_generations() {
 	for (i = 0; i < num_gen; ++i) {
 		for(color = 0; color < N_COLORS; color++) {
 			iterate_subgeneration(color);
-			print_all_cells();
-			printf("----\n");
+			/*print_all_cells();
+			printf("----\n");*/
 		}
         update_periods();
 	}
