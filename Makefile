@@ -27,16 +27,16 @@ debug-serial: serial
 test-serial: test-serial1 test-serial-starvation
 
 test-serial1: serial
-	./$(SERIAL_EXE) ex1.in 9 9 2 2 > $(TMP_OUT)
-	diff $(TMP_OUT) ex1.out
+	./$(SERIAL_EXE) ex1_in 9 9 2 2 > $(TMP_OUT)
+	diff $(TMP_OUT) ex1_out
 
 test-serial-starvation: serial
-	./$(SERIAL_EXE) ex_starvation.in 9 9 2 3 > $(TMP_OUT)
-	diff $(TMP_OUT) ex_starvation.out
+	./$(SERIAL_EXE) ex_starvation_in 9 9 2 3 > $(TMP_OUT)
+	diff $(TMP_OUT) ex_starvation_out
 
 test-serial-feed: serial
-	./$(SERIAL_EXE) ex_feed.in 9 9 2 3 > $(TMP_OUT)
-	diff $(TMP_OUT) ex_feed.out
+	./$(SERIAL_EXE) ex_feed_in 9 9 2 3 > $(TMP_OUT)
+	diff $(TMP_OUT) ex_feed_out
 
 clean:
 	rm -rf *.o $(SERIAL_EXE) $(TMP_OUT)
