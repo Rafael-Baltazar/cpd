@@ -126,6 +126,17 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
 	*row = (cell_number - *col) / max_size;
 }
 
+/*
+   eat_squirrel: Put empty content in the squirrel cell (in squirrel_world))
+     and reset starvation period
+   */
+void eat_squirrel(struct world *wolf, struct world *squirrel) {
+	squirrel->type = squirrel->type & TREE;
+	squirrel->starvation_period = 0;
+	squirrel->breeding_period = 0;
+	wolf->starvation_period = w_starvation_p;
+}
+
 /* 
  * check_breeding_period: Checks if an animal is going to breed
  */
@@ -178,6 +189,7 @@ void solve_conflict(struct world *source, struct world *destination) {
 	}
 	else if((source->type & SQUIRREL) && (destination->type & WOLF)) {
 		/* Squirrel is eaten by the wolf */
+		eat_squirrel(destination, source);
 	}
 }
 
@@ -202,12 +214,13 @@ void move_to(int src_row, int src_col, int dest_c, struct world **src, struct wo
 		/* Prevent trees to move */
 		dest_cell->type = animal->type & ~TREE;
 	}
-	
-	/* Check what source cell content will be */
-	if(check_breeding_period(src_row, src_col, src)) {
-		/*Reset breeding period */
-		dest_cell->breeding_period = w_breeding_p;
+
+	if(!animal->breeding_period) {
+		/* Breed */
+		animal->breeding_period = w_breeding_p;
+		animal->starvation_period = w_starvation_p;
 	}
+
 	else {
 		/* If source cell has a tree */
 		if(animal->type & TREE) {
@@ -219,7 +232,16 @@ void move_to(int src_row, int src_col, int dest_c, struct world **src, struct wo
 
 		animal->starvation_period = 0;
 		animal->breeding_period = 0;
+
 	}
+
+	/* Check what source cell content will be */
+	/*if(check_breeding_period(src_row, src_col, src)) {
+		/*Reset breeding period */
+	/*	dest_cell->breeding_period = w_breeding_p;
+	}
+	else {
+		}*/
 }
 /*
  * get_cells_with_squirrels: Return the number of the cells
@@ -236,31 +258,8 @@ int get_cells_with_squirrels(struct world **world, int *possibilities, int n_pos
 	{
 		get_world_coordinates(possibilities[i], &row, &col);
 		cell = world[row][col];
-		if(cell.type & SQUIRREL) {
+		if(cell.type == SQUIRREL) {
 			squirrels[found] = cell_number(row, col);
-			found++;
-		}
-	}
-
-	return found;
-}
-
-/*
- * get_empty_cells: Return the number of the cells
- * in possibilities that are empty
- *	empty_cells: Array with cell numbers of cells that are empty
- */
-int get_empty_cells(struct world **world, int *possibilities, int n_possibilities, int *empty_cells) {
-	int i;
-	int found = 0;
-	struct world cell;
-	int row, col;
-
-	for (i = 0; i < n_possibilities; ++i) {
-		get_world_coordinates(possibilities[i], &row, &col);
-		cell = world[row][col];
-		if(!cell.type) {
-			empty_cells[found] = cell_number(row, col);
 			found++;
 		}
 	}
@@ -291,16 +290,7 @@ int get_walkable_cells(struct world **world, int *possibilities, int n_possibili
 	return found;
 }
 
-/*
-   eat_squirrel: Put empty content in the squirrel cell (in squirrel_world))
-     and reset starvation period
-   */
-void eat_squirrel(struct world *wolf, struct world *squirrel) {
-	squirrel->type = EMPTY;
-	squirrel->starvation_period = 0;
-	squirrel->breeding_period = 0;
-	wolf->starvation_period = w_starvation_p;
-}
+
 
 /*
  * Update rules for animals in the world
@@ -326,7 +316,7 @@ inline void kill_wolf(struct world *wolf) {
 void update_wolf(struct world **world, struct world **to_move, int row, int col) {
 	int possibilities[N_ADJACENTS];
 	int may_move[N_ADJACENTS];
-	int n_possibilities, n_squirrels, n_empty;
+	int n_possibilities, n_squirrels, n_other;
 	int chosen, s_row, s_col;
     struct world *wolf = &world[row][col];
 	n_possibilities = get_adjacents(row, col, possibilities);
@@ -353,10 +343,10 @@ void update_wolf(struct world **world, struct world **to_move, int row, int col)
 
 		else {
 			/*No squirrels
-				Let's check if there's any empty cell*/
-			n_empty = get_walkable_cells(to_move, possibilities, n_possibilities, may_move, ICE | TREE);
-			if(n_empty) {
-				chosen = choose_position(row, col, n_empty);
+				Let's another cell*/
+			n_other = get_walkable_cells(to_move, possibilities, n_possibilities, may_move, ICE | TREE);
+			if(n_other) {
+				chosen = choose_position(row, col, n_other);
 				/*Move to that position*/
 				move_to(row, col, may_move[chosen], world, to_move);
 			}
@@ -400,7 +390,7 @@ void iterate_subgeneration(int color) {
             start_col = 1;
         }
     
-		for(j = start_col; j < max_size; j += 2) {
+		for(j = start_col; j < max_size; j += N_COLORS) {
             if(current[i][j].type & WOLF) {
 				update_wolf(current, to_move, i,j);
             }
@@ -466,7 +456,7 @@ void print_for_debug(struct world **world){
 
 void populate_world_from_file(char file_name[]) {
 	FILE *fp;
-	int i, j, k, size, row_size, color;
+	int i, j, size, row_size, color;
 	char a;
 
 	struct world *all_positions;
@@ -479,25 +469,17 @@ void populate_world_from_file(char file_name[]) {
 	} else {
 		fscanf(fp, "%d", &max_size);
         row_size = max_size*sizeof(struct world*);
+		size = max_size*sizeof(struct world);
 		
 		for(i = 0; i < N_COLORS; i++) {
 			worlds[i] = (struct world**) malloc(row_size);
-		}
-
-		for(i = 0; i < N_COLORS; i++) {
 			all_positions = (struct world*) malloc(max_size * max_size * sizeof(struct world));
+		
 			for(j = 0; j < max_size; j++) {
 				worlds[i][j] = all_positions + (j * max_size);
+				/* Put zeros in each line of each world */
+				memset((void*) worlds[i][j], 0, size);
 			}
-		}
-
-		/* Set each world position with zeros */
-		for(k=0;k<max_size;++k) {
-			size = max_size*sizeof(struct world);
-			worlds[0][k] = (struct world*) malloc(size);
-			memset((void*)worlds[0][k], 0, size);
-			worlds[1][k] = (struct world*) malloc(size);
-			memset((void*)worlds[1][k], 0, size);
 		}
 
 		/*populating*/
@@ -522,7 +504,7 @@ void populate_world_from_file(char file_name[]) {
                 worlds[color][i][j].breeding_period = w_breeding_p;
             }
 			else {
-				printf("Error reading input file\n");
+				printf("Error in input file\n");
 				fclose(fp);
 				exit(-1);
 			}	
@@ -537,9 +519,11 @@ void populate_world_from_file(char file_name[]) {
  */
 void process_generations() {
 	int i, color;
+	/*print_all_cells();*/
 	for (i = 0; i < num_gen; ++i) {
 		for(color = 0; color < N_COLORS; color++) {
 			iterate_subgeneration(color);
+			/*print_all_cells();*/
 		}
         update_periods();
 	}

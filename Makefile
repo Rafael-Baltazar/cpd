@@ -19,7 +19,7 @@ $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O) $(FLAGS)
 
 run-serial: serial
-	./$(SERIAL_EXE) data 2 2 4 3
+	./$(SERIAL_EXE) data 2 2 7 5
 
 test-serial: serial
 	sh test.sh
