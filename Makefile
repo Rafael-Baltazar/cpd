@@ -12,7 +12,7 @@ P_FLAGS=-fopenmp
 DEBUGGER=ddd
 TMP_OUT=tmp.out
 
-all: serial parallel	
+all: serial
 
 parallel: $(PARALLEL_EXE)
 

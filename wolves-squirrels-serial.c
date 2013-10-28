@@ -46,13 +46,17 @@ struct world {
  	int starvation_period;
 	int current_subgeneration;
  } **worlds[N_COLORS]; 
- 
-  
+
+
 void swap_matrix(){
   struct world** aux;
   aux = worlds[1];
   worlds[1] = worlds[0];
   worlds[0] = aux;  
+}
+
+inline void copy_matrix(struct world **src, struct world **dst) {
+	memcpy(dst[0], src[0], sizeof(struct world) * max_size * max_size); 
 }
  
 /*
@@ -203,34 +207,72 @@ void solve_conflict(struct world *source, struct world *destination) {
 
 /* 
  * move_to: Move an animal in position (src_row, src_col)
- * 	to cell number dest_c
+ * 	to cell number dest_ci. The animal breeds if it's breeding
+ * period is 0
  */
-void move_to(int src_row, int src_col, int dest_c, struct world **src, struct world **dest) {
-	int dest_row, dest_col;
-	struct world *animal = &src[src_row][src_col];
-	struct world *dest_cell;
+void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, struct world **write_matrix) {
+	int dest_row, dest_col, new_breeding_p;
+	struct world *read_src_cell = &read_matrix[src_row][src_col];	
+	struct world *read_dst_cell;
+	struct world *write_src_cell = &write_matrix[src_row][src_col];
+	struct world *write_dst_cell;
 	get_world_coordinates(dest_c, &dest_row, &dest_col);
-	dest_cell = &dest[dest_row][dest_col];
+	read_dst_cell = &read_matrix[dest_row][dest_col];
+	write_dst_cell = &write_matrix[dest_row][dest_col];
+
+	if(!read_src_cell->breeding_period) {
+		/* Breeds */
+		write_src_cell = read_src_cell;
+		if(read_src_cell->type & SQUIRREL) {
+			write_src_cell->breeding_period = s_breeding_p;
+			new_breeding_p = s_breeding_p;
+		}
+		else {
+			write_src_cell->breeding_period = w_breeding_p;
+			write_src_cell->starvation_period = w_starvation_p;
+			new_breeding_p = w_breeding_p;
+		}
+	}
+	else {
+		write_src_cell->type = read_src_cell->type & TREE;
+		write_src_cell->breeding_period = 0;
+		write_src_cell->starvation_period = 0;
+		new_breeding_p = read_src_cell->breeding_period;
+	}
+
+	if(read_src_cell->type & SQUIRREL)
+		/*TODO: what will be the content of write_dst_cell. solve conflict*/
+
+
+
+
+
+
+	write_dst_cell->breeding_period = new_breeding_p;
+	return;
+
+
+
 
 	/* Check what destination cell content will be*/
 	/* If destination cell is not empty */
-	if(dest_cell->type) {
+	/*if(dest_cell->type) {
 		solve_conflict(animal, dest_cell);
 	}
 	else {
 		*dest_cell = *animal;
-		/* Prevent trees to move */
+		Prevent trees to move
 		dest_cell->type = animal->type & ~TREE;
 	}
 
 	if(!animal->breeding_period) {
-		/* Breed */
+		Breed 
 		animal->breeding_period = w_breeding_p;
 		animal->starvation_period = w_starvation_p;
 	}
 
 	else {
-		/* If source cell has a tree */
+		If source cell has a tree
 		if(animal->type & TREE) {
 			animal->type = TREE;
 		}
@@ -241,7 +283,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **src, struct wo
 		animal->starvation_period = 0;
 		animal->breeding_period = 0;
 
-	}
+	}*/
 }
 /*
  * get_cells_with_squirrels: Return the number of the cells
@@ -295,7 +337,7 @@ int get_walkable_cells(struct world **world, int *possibilities, int n_possibili
 /*
  * Update rules for animals in the world
  */
-void update_squirrel(struct world **world, struct world **to_move, int row, int col){
+void update_squirrel(struct world **read_matrix, struct world **write_matrix, int row, int col){
 	int possibilities[N_ADJACENTS];
 	int may_move[N_ADJACENTS];
 	int n_possibilities, n_moves;
@@ -303,9 +345,9 @@ void update_squirrel(struct world **world, struct world **to_move, int row, int 
 	
 	n_possibilities = get_adjacents(row, col, possibilities);
 	if(n_possibilities) {
-		n_moves = get_walkable_cells(to_move, possibilities, n_possibilities, may_move, ICE | WOLF);
+		n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
 		chosen = choose_position(row, col, n_moves);
-		move_to(row, col, may_move[chosen], world, to_move);
+		move_to(row, col, may_move[chosen], read_matrix, write_matrix);
 	}	
  }
 
@@ -379,8 +421,8 @@ void update_periods() {
  */
 void iterate_subgeneration(int color) {
 	int i, j, start_col;
-    struct world **current = worlds[0];
-    struct world **to_move = worlds[1];
+    struct world **read_matrix = worlds[0];
+    struct world **write_matrix = worlds[1];
 
 	for(i = 0; i < max_size; i++) {
         if(get_cell_color(i, 0) == color) {
@@ -391,11 +433,11 @@ void iterate_subgeneration(int color) {
         }
     
 		for(j = start_col; j < max_size; j += N_COLORS) {
-            if(current[i][j].type & WOLF) {
-				update_wolf(current, to_move, i,j);
+            if(read_matrix[i][j].type & WOLF) {
+				update_wolf(read_matrix, write_matrix, i,j);
             }
-			else if(current[i][j].type & SQUIRREL) {
-                update_squirrel(current, to_move, i,j);
+			else if(read_matrix[i][j].type & SQUIRREL) {
+                update_squirrel(read_matrix, write_matrix, i,j);
 			}
 		}
 	}
@@ -540,7 +582,6 @@ int main(int argc, char **argv) {
 	/*
         process_generations();
         print_all_cells();*/
-	update_squirrel(worlds[0], worlds[1], 0, 0);
 	print_for_debug(worlds[0]);
 	swap_matrix();
 	print_for_debug(worlds[0]);
