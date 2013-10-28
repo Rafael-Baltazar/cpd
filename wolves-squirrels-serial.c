@@ -222,7 +222,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 
 	if(!read_src_cell->breeding_period) {
 		/* Breeds */
-		write_src_cell = read_src_cell;
+		*write_src_cell = *read_src_cell;
 		if(read_src_cell->type & SQUIRREL) {
 			write_src_cell->breeding_period = s_breeding_p;
 			new_breeding_p = s_breeding_p;
@@ -240,16 +240,31 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		new_breeding_p = read_src_cell->breeding_period;
 	}
 
-	if(read_src_cell->type & SQUIRREL)
-		/*TODO: what will be the content of write_dst_cell. solve conflict*/
-
-
+	/*TODO: what will be the content of write_dst_cell. solve conflict
+	if((!write_dst_cell->type) || write_dst_cell == TREE)
+		*write_dst_cell = *read_src_cell;
+	else {
+		if(read_src_cell & SQUIRREL)
+			;
+		else {
+			;
+		}
+	}*/
 
 
 
 
 	write_dst_cell->breeding_period = new_breeding_p;
 	return;
+
+
+
+
+
+
+
+
+
 
 
 
@@ -355,12 +370,12 @@ inline void kill_wolf(struct world *wolf) {
     memset(wolf, 0, sizeof(struct world));
 }
  
-void update_wolf(struct world **world, struct world **to_move, int row, int col) {
+void update_wolf(struct world **read_matrix, struct world **write_matrix, int row, int col) {
 	int possibilities[N_ADJACENTS];
 	int may_move[N_ADJACENTS];
 	int n_possibilities, n_squirrels, n_other;
 	int chosen, s_row, s_col;
-    struct world *wolf = &world[row][col];
+    struct world *wolf = &write_matrix[row][col];
 	n_possibilities = get_adjacents(row, col, possibilities);
 
     if(!wolf->starvation_period) {
@@ -370,27 +385,27 @@ void update_wolf(struct world **world, struct world **to_move, int row, int col)
 	/*If has adjacents to choose*/
 	if(n_possibilities) {
 		/*Check for squirrels*/
-		n_squirrels = get_cells_with_squirrels(to_move, possibilities, n_possibilities, may_move);
+		n_squirrels = get_cells_with_squirrels(read_matrix, possibilities, n_possibilities, may_move);
 		if(n_squirrels) {
 			/*At least one squirrel has been found
 				Choose one of them*/
 			chosen = choose_position(row, col, n_squirrels);
-			/* Eat the squirrel */
+			/* Eat the squirrel - Now inside move_to
 			get_world_coordinates(may_move[chosen], &s_row, &s_col);
-			eat_squirrel(wolf, &to_move[s_row][s_col]);
+			eat_squirrel(wolf, &write_matrix[s_row][s_col]);*/
 			
 			/*Move to that position*/
-			move_to(row, col, may_move[chosen], world, to_move);
+			move_to(row, col, may_move[chosen], read_matrix, write_matrix);
 		}
 
 		else {
 			/*No squirrels
 				Let's another cell*/
-			n_other = get_walkable_cells(to_move, possibilities, n_possibilities, may_move, ICE | TREE);
+			n_other = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | TREE);
 			if(n_other) {
 				chosen = choose_position(row, col, n_other);
 				/*Move to that position*/
-				move_to(row, col, may_move[chosen], world, to_move);
+				move_to(row, col, may_move[chosen], read_matrix, write_matrix);
 			}
 		}
 	}
@@ -565,8 +580,9 @@ void process_generations() {
 	for (i = 0; i < num_gen; ++i) {
 		for(color = 0; color < N_COLORS; color++) {
 			iterate_subgeneration(color);
-			
-			/*print_all_cells();*/
+			swap_matrix();
+			copy_matrix(worlds[0], worlds[1]);
+			print_for_debug(worlds[0]);
 		}
         update_periods();
 	}
@@ -579,13 +595,16 @@ int main(int argc, char **argv) {
 		w_starvation_p = atoi(argv[4]);		
 		num_gen = atoi(argv[5]);
 		populate_world_from_file(argv[1]);
-	/*
-        process_generations();
-        print_all_cells();*/
+	   /* process_generations();
+	    print_all_cells();*/
+
+	update_squirrel(worlds[0],worlds[1], 0, 0);
 	print_for_debug(worlds[0]);
 	swap_matrix();
-	print_for_debug(worlds[0]);
-	
+	copy_matrix(worlds[0],worlds[1]);
+	print_for_debug(worlds[0]);	
+
+
 	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
