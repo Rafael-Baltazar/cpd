@@ -18,5 +18,7 @@
 *.app
 
 wolves-squirrels-serial
+wolves-squirrels-parallel
 
 *.*~
+*~
