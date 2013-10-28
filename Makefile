@@ -3,20 +3,32 @@
 SERIAL_EXE=wolves-squirrels-serial
 SERIAL_C=wolves-squirrels-serial.c
 SERIAL_O=wolves-squirrels-serial.o
+PARALLEL_EXE=wolves-squirrels-parallel
+PARALLEL_C=wolves-squirrels-parallel.c
+PARALLEL_O=wolves-squirrels-parallel.o
 CC=gcc
 FLAGS=-Wall -pedantic -g
+P_FLAGS=-fopenmp
 DEBUGGER=ddd
 TMP_OUT=tmp.out
 
 all: serial	
 
+parallel: $(PARALLEL_EXE)
+
 serial: $(SERIAL_EXE)
+
+$(PARELLEL_EXE): $(PARALELL_O)
+	$(CC) -o $(PARALLEL_EXE) $(PARALLEL_O)
+
+$(PARALLEL_O): $(PARALLEL_C)
+	$(CC) -c $(PARALLEL_C) -o $(PARALLEL_O) $(P_FLAGS) $(FLAGS)
 
 $(SERIAL_EXE): $(SERIAL_O)
 	$(CC) -o $(SERIAL_EXE) $(SERIAL_O)
 
 $(SERIAL_O): $(SERIAL_C)
-	$(CC) -c $(SERIAL_C) -o $(SERIAL_O) $(FLAGS)
+	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)  $(FLAGS)
 
 run-serial: serial
 	./$(SERIAL_EXE) data 2 2 7 5
