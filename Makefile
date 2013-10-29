@@ -12,7 +12,7 @@ P_FLAGS=-fopenmp
 DEBUGGER=ddd
 TMP_OUT=tmp.out
 
-all: serial
+all: serial parallel
 
 parallel: $(PARALLEL_EXE)
 
@@ -32,8 +32,8 @@ $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)  $(FLAGS)
 
 run-serial: serial
-	time ./$(SERIAL_EXE) data 10 10 4 8
-
+	time ./$(SERIAL_EXE) data 2 2 7 5 
+	
 run-parallel: parallel
 	time ./$(PARALLEL_EXE) data 2 2 7 5
 

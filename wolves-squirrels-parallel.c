@@ -543,7 +543,8 @@ void populate_world_from_file(char file_name[]) {
 		fscanf(fp, "%d", &max_size);
         row_size = max_size*sizeof(struct world*);
 		size = max_size*sizeof(struct world);
-		
+
+#pragma omp parallel for private(j)
 		for(i = 0; i < N_COLORS; i++) {
 			worlds[i] = (struct world**) malloc(row_size);
 			all_positions = (struct world*) malloc(max_size * max_size * sizeof(struct world));
