@@ -235,6 +235,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		}
 	}
 	else {
+		/*doesn't breed*/
 		write_src_cell->type = read_src_cell->type & TREE;
 		write_src_cell->breeding_period = 0;
 		write_src_cell->starvation_period = 0;
@@ -264,62 +265,32 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		}
 	}
 
-	else if(read_src_cell->type & SQUIRREL) {
-		/* Check if the squirrel is competing against other squirrel */
-		if(write_dst_cell->type & SQUIRREL) {
-			if(read_src_cell->breeding_period < write_dst_cell->breeding_period) {
-				*write_dst_cell = *read_src_cell;
-				/* Prevent moving trees or deleting existing ones */
-				if(read_dst_cell->type & TREE) {
-					write_dst_cell->type = write_dst_cell->type | TREE;
-				}
-				else if(read_src_cell->type & TREE) {
-					write_dst_cell->type = write_dst_cell->type & ~TREE;
-				}
-			}
-		}
+	else if(read_src_cell->type & SQUIRREL) {	
 		/* Check if the squirrel is competing against a wolf */
-		else if(write_dst_cell->type & WOLF) {
+		if(write_dst_cell->type & WOLF) {
 			/* Suicide move */
 			write_dst_cell->ate_squirrel = 1;
 		}
-		else {
-			*write_dst_cell = *read_src_cell;
+		else if(write_dst_cell->type & SQUIRREL) {
+		/* Check if the squirrel is competing against other squirrel */
+			if(read_src_cell->breeding_period < write_dst_cell->breeding_period) {
+				*write_dst_cell = *read_src_cell; 
+				/* Prevent moving trees or deleting existing ones */
+				if (read_dst_cell->type & TREE)
+					write_dst_cell->type = SQUIRRELnTREE;
+				else 
+					write_dst_cell->type = SQUIRREL;
+			}
+		} else {
+			*write_dst_cell = *read_src_cell; 
+			/* Prevent moving trees or deleting existing ones */
+			if (read_dst_cell->type & TREE)
+				write_dst_cell->type = SQUIRRELnTREE;
+			else 
+				write_dst_cell->type = SQUIRREL;
 		}
 	}
-
 	write_dst_cell->breeding_period = new_breeding_p;
-
-	/* Check what destination cell content will be*/
-	/* If destination cell is not empty */
-	/*if(dest_cell->type) {
-		solve_conflict(animal, dest_cell);
-	}
-	else {
-		*dest_cell = *animal;
-		Prevent trees to move
-		dest_cell->type = animal->type & ~TREE;
-	}
-
-	if(!animal->breeding_period) {
-		Breed 
-		animal->breeding_period = w_breeding_p;
-		animal->starvation_period = w_starvation_p;
-	}
-
-	else {
-		If source cell has a tree
-		if(animal->type & TREE) {
-			animal->type = TREE;
-		}
-		else {
-			animal->type = EMPTY;
-		}
-
-		animal->starvation_period = 0;
-		animal->breeding_period = 0;
-
-	}*/
 }
 /*
  * get_cells_with_squirrels: Return the number of the cells
@@ -434,11 +405,11 @@ void update_wolf(struct world **read_matrix, struct world **write_matrix, int ro
 
 void update_periods(struct world **read_matrix, struct world **write_matrix) {
     int i, j;
-    struct world *read_cell, *write_cell;
+    struct world /*read_cell,*/ *write_cell;
 
     for(i = 0; i < max_size; i++) {
         for(j = 0; j < max_size; j++) {
-			read_cell = &read_matrix[i][j];
+			/*read_cell = &read_matrix[i][j];*/
 			write_cell = &write_matrix[i][j];
 
 			if(write_cell->type & WOLF) {
