@@ -32,7 +32,7 @@ $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)  $(FLAGS)
 
 run-serial: serial
-	time ./$(SERIAL_EXE) data 2 2 7 5
+	time ./$(SERIAL_EXE) data 10 10 4 8
 
 run-parallel: parallel
 	time ./$(PARALLEL_EXE) data 2 2 7 5
