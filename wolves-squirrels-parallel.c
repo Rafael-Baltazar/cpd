@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>	
+#include <omp.h>
 
 /*Types (Defined as binnary masks to make the comparations easier to handle) */
 /* Empty is 0 */
@@ -407,6 +408,7 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
     int i, j;
     struct world /*read_cell,*/ *write_cell;
 
+#pragma omp parallel for private(j, write_cell)
     for(i = 0; i < max_size; i++) {
         for(j = 0; j < max_size; j++) {
 			/*read_cell = &read_matrix[i][j];*/
@@ -447,6 +449,7 @@ void iterate_subgeneration(int color) {
     struct world **read_matrix = worlds[0];
     struct world **write_matrix = worlds[1];
 
+#pragma omp parallel for private(j, start_col)
 	for(i = 0; i < max_size; i++) {
         if(get_cell_color(i, 0) == color) {
             start_col = 0;
@@ -454,7 +457,7 @@ void iterate_subgeneration(int color) {
         else {
             start_col = 1;
         }
-    
+   	
 		for(j = start_col; j < max_size; j += N_COLORS) {
             if(read_matrix[i][j].type & WOLF) {
 				update_wolf(read_matrix, write_matrix, i,j);
@@ -464,6 +467,7 @@ void iterate_subgeneration(int color) {
 			}
 		}
 	}
+
 }
 
 /*prints the world*/
@@ -599,26 +603,31 @@ void process_generations() {
 }
 
 int main(int argc, char **argv) {
-	if(argc == N_ARGS) {
+   double start = 0, end;
+
+	if(argc >= N_ARGS) {
 		w_breeding_p = atoi(argv[2]);
 		s_breeding_p = atoi(argv[3]);
 		w_starvation_p = atoi(argv[4]);		
 		num_gen = atoi(argv[5]);
+		/* Count time ? */
+		if(argc > N_ARGS) {
+			if(!strcmp(argv[6], "time")) {
+				start = omp_get_wtime();
+			}
+		}
 		populate_world_from_file(argv[1]);
 	    process_generations();
 	    print_all_cells();
 
-/*	update_squirrel(worlds[0],worlds[1], 0, 0);
-	print_for_debug(worlds[0]);
-	swap_matrix();
-	copy_matrix(worlds[0],worlds[1]);
-	print_for_debug(worlds[0]);	
-*/
-
+		if(start) {
+			end = omp_get_wtime();
+			fprintf(stdout, "Time: %f\n", end - start);
+		}
 	}
 	else {
-		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
-		printf("<squirrel_breeding_period> <wolf_startvation_period> <# of generations>\n");
+		printf("Usage: wolves-squirrels-parallel <input file name> <wolf_breeding_period> ");
+		printf("<squirrel_breeding_period> <wolf_startvation_period> <# of generations> [time]\n");
 	}
 	return 0;	
 }

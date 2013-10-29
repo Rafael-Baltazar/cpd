@@ -588,32 +588,20 @@ void process_generations() {
 			swap_matrix();
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
-			/*printf("Read matrix\n");
-			print_for_debug(worlds[0]);
-			printf("Write matrix\n");
-			print_for_debug(worlds[1]);*/
 		}
         update_periods(worlds[0], worlds[1]);
 	}
 }
 
 int main(int argc, char **argv) {
-	if(argc == N_ARGS) {
+	if(argc >= N_ARGS) {
 		w_breeding_p = atoi(argv[2]);
 		s_breeding_p = atoi(argv[3]);
 		w_starvation_p = atoi(argv[4]);		
 		num_gen = atoi(argv[5]);
 		populate_world_from_file(argv[1]);
 	    process_generations();
-	    print_all_cells();
-
-/*	update_squirrel(worlds[0],worlds[1], 0, 0);
-	print_for_debug(worlds[0]);
-	swap_matrix();
-	copy_matrix(worlds[0],worlds[1]);
-	print_for_debug(worlds[0]);	
-*/
-
+		print_all_cells();
 	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");

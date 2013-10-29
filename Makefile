@@ -35,9 +35,10 @@ run-serial: serial
 	time ./$(SERIAL_EXE) data 2 2 7 5 
 	
 run-parallel: parallel
-	time ./$(PARALLEL_EXE) data 2 2 7 5
+	time ./$(PARALLEL_EXE) data 2 2 800 1000000
 
-
+test: serial parallel
+	./test.sh
 
 test-serial: serial
 	sh test.sh
