@@ -44,7 +44,7 @@ struct world {
 	int type; /* Wolf, Squirrel, Ice, Tree (Empty is 0) */
  	int breeding_period;
  	int starvation_period;
-	int current_subgeneration;
+	int ate_squirrel;
  } **worlds[N_COLORS]; 
 
 
@@ -254,8 +254,13 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 				}
 			}
 		}
-		else {
+
+		else { 
 			*write_dst_cell = *read_src_cell;
+			/* Check if the wolf is eating a squirrel */
+			if(read_dst_cell->type & SQUIRREL) {
+				write_dst_cell->ate_squirrel = 1;				
+			}
 		}
 	}
 
@@ -276,6 +281,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		/* Check if the squirrel is competing against a wolf */
 		else if(write_dst_cell->type & WOLF) {
 			/* Suicide move */
+			write_dst_cell->ate_squirrel = 1;
 		}
 		else {
 			*write_dst_cell = *read_src_cell;
@@ -438,13 +444,21 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
 			if(write_cell->type & WOLF) {
 				printf("Starvation: %d\n", write_cell->starvation_period);
 				/* Check if the wolf ate a squirrel*/
-				if(read_cell->type & SQUIRREL) {
+				if(write_cell->ate_squirrel) {
 					printf("Ate a squirrel\n");
+					write_cell->ate_squirrel = 0;
 					write_cell->starvation_period = w_starvation_p;
 				}
 				else {
 					write_cell->starvation_period--;
 				}
+				/*if(read_cell->type & SQUIRREL) {
+					printf("Ate a squirrel\n");
+					write_cell->starvation_period = w_starvation_p;
+				}
+				else {
+					write_cell->starvation_period--;
+				}*/
 				write_cell->breeding_period--;
 			}
 
@@ -485,7 +499,7 @@ void iterate_subgeneration(int color) {
 
 /*prints the world*/
 void print_all_cells(){
-	int i, j, color;
+	int i, j;
 	char type;
 	struct world cell;
 
