@@ -6,17 +6,28 @@ SERIAL_O=wolves-squirrels-serial.o
 PARALLEL_EXE=wolves-squirrels-parallel
 PARALLEL_C=wolves-squirrels-parallel.c
 PARALLEL_O=wolves-squirrels-parallel.o
+MAKE_TEST_EXE=make_test
+MAKE_TEST_O=make_test.o
+MAKE_TEST_C=make_test.c
 CC=gcc
 FLAGS=-Wall -pedantic -g
 P_FLAGS=-fopenmp
 DEBUGGER=ddd
 TMP_OUT=tmp.out
 
-all: serial parallel
+all: serial parallel maketest
 
 parallel: $(PARALLEL_EXE)
 
 serial: $(SERIAL_EXE)
+
+maketest: $(MAKE_TEST_EXE)
+
+$(MAKE_TEST_EXE): $(MAKE_TEST_O)
+	$(CC) -o $(MAKE_TEST_EXE) $(MAKE_TEST_O)
+
+$(MAKE_TEST_O): $(MAKE_TEST_C)
+	$(CC) -c $(MAKE_TEST_C) -o $(MAKE_TEST_O)  $(FLAGS)
 
 $(PARALLEL_EXE): $(PARALLEL_O)
 	$(CC) $(P_FLAGS) -o $(PARALLEL_EXE) $(PARALLEL_O)
@@ -45,6 +56,10 @@ test-serial: serial
 
 debug-serial: serial
 	$(DEBUGGER) ./$(SERIAL_EXE)
+
+debug-parallel: parallel
+	$(DEBUGGER) ./$(PARALLEL_EXE)
+
 
 test-serial: test-serial1 test-serial-starvation
 
