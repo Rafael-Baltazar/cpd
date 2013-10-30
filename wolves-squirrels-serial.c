@@ -138,73 +138,6 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
 	*row = (cell_number - *col) / max_size;
 }
 
-/*
-   eat_squirrel: Put empty content in the squirrel cell (in squirrel_world))
-     and reset starvation period
-   */
-void eat_squirrel(struct world *wolf, struct world *squirrel) {
-	squirrel->type = squirrel->type & TREE;
-	squirrel->starvation_period = 0;
-	squirrel->breeding_period = 0;
-	wolf->starvation_period = w_starvation_p;
-}
-
-/* 
- * check_breeding_period: Checks if an animal is going to breed
- */
-int check_breeding_period(int row, int col, struct world **world){
-	struct world *animal = &world[row][col];
-	int saved_type = animal->type;
-	
-	if(animal->breeding_period) {
-		if(saved_type == SQUIRRELnTREE)
-			animal->type = TREE;
-		else
-			animal->type = EMPTY;
-		return 0;
-	} else {
-		/*load the breeding and starvation values into the new animal*/
-		if(saved_type & SQUIRREL || saved_type == SQUIRRELnTREE)
-			animal->breeding_period = s_breeding_p;
-		else if(saved_type & WOLF) {
-			animal->breeding_period = w_breeding_p;
-			animal->starvation_period = w_starvation_p;
-		}
-		return 1; 
-	}
-}
-
-void solve_wolves_conflict(struct world *wolf1, struct world *wolf2) {
-	if(wolf1->starvation_period > wolf2->starvation_period) {
-		*wolf2 = *wolf1;
-	}
-
-	else if(wolf1->starvation_period == wolf2->starvation_period) {
-		if(wolf1->breeding_period < wolf2->breeding_period) {
-			*wolf2 = *wolf1;
-		}	
-	}
-}
-
-void solve_squirrels_conflict(struct world *squirrel1, struct world *squirrel2) {
-	if(squirrel1->breeding_period < squirrel2->breeding_period) {
-		*squirrel2 = *squirrel1;
-	}	
-}
-
-void solve_conflict(struct world *source, struct world *destination) {
-	if((source->type & WOLF) && (destination->type & WOLF)) {
-		solve_wolves_conflict(source, destination);
-	}
-	else if((source->type & SQUIRREL) && (destination->type & SQUIRREL)) {
-		solve_squirrels_conflict(source, destination);
-	}
-	else if((source->type & SQUIRREL) && (destination->type & WOLF)) {
-		/* Squirrel is eaten by the wolf */
-		eat_squirrel(destination, source);
-	}
-}
-
 /* 
  * move_to: Move an animal in position (src_row, src_col)
  * 	to cell number dest_ci. The animal breeds if it's breeding
@@ -351,11 +284,11 @@ void update_squirrel(struct world **read_matrix, struct world **write_matrix, in
 	int chosen;
 	
 	n_possibilities = get_adjacents(row, col, possibilities);
-	if(n_possibilities) {
-		n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
+	n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
+	if(n_moves) {
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen], read_matrix, write_matrix);
-	}	
+	}
  }
 
 inline void kill_wolf(struct world *wolf) {
