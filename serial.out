@@ -1,0 +1,1 @@
+time ./wolves-squirrels-serial tests/world_100.in  2 2 800 1000000

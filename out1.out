@@ -1,0 +1,1 @@
+Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> <squirrel_breeding_period> <wolf_startvation_period> <# of generations>

@@ -43,10 +43,10 @@ $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)  $(FLAGS)
 
 run-serial: serial
-	time ./$(SERIAL_EXE) data 2 2 7 5 
+	time ./$(SERIAL_EXE) tests/world_100.in  2 2 800 1000000
 	
 run-parallel: parallel
-	time ./$(PARALLEL_EXE) data 2 2 800 1000000
+	time ./$(PARALLEL_EXE) tests/world_100.in 2 2 800 1000000
 
 test: serial parallel
 	./test.sh

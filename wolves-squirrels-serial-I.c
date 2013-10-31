@@ -1,7 +1,7 @@
 /*
  * Wolves and squirrels
  *
- * Parallel implementation
+ * Serial implementation
  */
 
 #include <stdio.h>
@@ -29,6 +29,7 @@
 #define N_COLORS 2
 
 int max_size;
+int num_eats = 0, num_breeds = 0;
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 
 #define N_ADJACENTS	4
@@ -158,6 +159,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		/* Breeds */
 		*write_src_cell = *read_src_cell;
 		if(read_src_cell->type & SQUIRREL) {
+				++num_breeds;
 			write_src_cell->breeding_period = s_breeding_p;
 			new_breeding_p = 1;
 		}
@@ -180,6 +182,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		/* Check if the wolf is competing against other wolf */
 		if(write_dst_cell->type & WOLF) {
 			if(read_dst_cell->type & SQUIRREL) {
+					++num_eats;
 				new_ate_squirrel = 1;
 			}
 			else {
@@ -217,6 +220,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		/* Check if the squirrel is competing against a wolf */
 		if(write_dst_cell->type & WOLF) {
 			/* Suicide move */
+				num_eats++;
 			write_dst_cell->ate_squirrel = 1;
 		}
 		else if(write_dst_cell->type & SQUIRREL) {
@@ -297,15 +301,12 @@ void update_squirrel(struct world **read_matrix, struct world **write_matrix, in
 	int may_move[N_ADJACENTS];
 	int n_possibilities, n_moves;
 	int chosen;
-
-#pragma omp critical(update)
-	{	
+	
 	n_possibilities = get_adjacents(row, col, possibilities);
 	n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
 	if(n_moves) {
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen], read_matrix, write_matrix);
-	}
 	}
  }
 
@@ -321,11 +322,9 @@ void update_wolf(struct world **read_matrix, struct world **write_matrix, int ro
     struct world *wolf = &write_matrix[row][col];
 	n_possibilities = get_adjacents(row, col, possibilities);
 
-#pragma omp critical(update)
-	{
-	if(!wolf->starvation_period) {
+    if(!wolf->starvation_period) {
         kill_wolf(wolf);
-        n_possibilities = 0;
+        return;
     }
 	/*If has adjacents to choose*/
 	if(n_possibilities) {
@@ -354,7 +353,6 @@ void update_wolf(struct world **read_matrix, struct world **write_matrix, int ro
 			}
 		}
 	}
-	}
 }
 
 void update_periods(struct world **read_matrix, struct world **write_matrix) {
@@ -376,7 +374,6 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
 					write_cell->starvation_period--;
 				}
 				if(write_cell->breed) {
-					write_cell->breed = 0;
 					write_cell->breeding_period = w_breeding_p;
 				}
 				else {
@@ -386,7 +383,6 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
 
 			else if(write_cell->type & SQUIRREL) {
 				if(write_cell->breed) {
-					write_cell->breed = 0;
 					write_cell->breeding_period = s_breeding_p;
 				}
 				else {
@@ -406,8 +402,7 @@ void iterate_subgeneration(int color) {
     struct world **read_matrix = worlds[0];
     struct world **write_matrix = worlds[1];
 
-#pragma omp parallel for private(start_col, j)
-	for(i = 0; i < max_size; i++) {
+	for(i = max_size - 1; i > -1; i--) {
         if(get_cell_color(i, 0) == color) {
             start_col = 0;
         }
@@ -547,6 +542,12 @@ void process_generations() {
 			swap_matrix();
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
+			if(i<13){
+					printf("Gen num:%d Sub: %d\n", i, color);
+					print_for_debug(worlds[1]);
+					printf("Pos 2 2 Starvation: %d Breeding: %d Ate squirrel:%d\n", worlds[1][2][2].starvation_period, worlds[1][2][2].breeding_period, worlds[1][2][2].ate_squirrel);
+					printf("Pos 3 2 Starvation: %d Breeding: %d Ate squirrel:%d\n", worlds[1][3][2].starvation_period, worlds[1][3][2].breeding_period, worlds[1][3][2].ate_squirrel);
+			}
 		}
 		update_periods(worlds[0], worlds[1]);
 	}
@@ -561,6 +562,7 @@ int main(int argc, char **argv) {
 		populate_world_from_file(argv[1]);
 	    process_generations();
 		print_all_cells();
+		printf("Eats:%d Breeds:%d\n", num_eats, num_breeds); 
 	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");

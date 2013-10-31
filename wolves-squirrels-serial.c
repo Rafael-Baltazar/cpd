@@ -29,7 +29,6 @@
 #define N_COLORS 2
 
 int max_size;
-
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 
 #define N_ADJACENTS	4
@@ -45,6 +44,7 @@ struct world {
  	int breeding_period;
  	int starvation_period;
 	int ate_squirrel;
+	int breed;
  } **worlds[N_COLORS]; 
 
 
@@ -159,12 +159,12 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		*write_src_cell = *read_src_cell;
 		if(read_src_cell->type & SQUIRREL) {
 			write_src_cell->breeding_period = s_breeding_p;
-			new_breeding_p = s_breeding_p;
+			new_breeding_p = 1;
 		}
 		else {
 			write_src_cell->breeding_period = w_breeding_p;
 			write_src_cell->starvation_period = w_starvation_p;
-			new_breeding_p = w_breeding_p;
+			new_breeding_p = 1;
 		}
 	}
 	else {
@@ -172,7 +172,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		write_src_cell->type = read_src_cell->type & TREE;
 		write_src_cell->breeding_period = 0;
 		write_src_cell->starvation_period = 0;
-		new_breeding_p = read_src_cell->breeding_period;
+		new_breeding_p = 0;
 	}
 
 	/* What will be the content of destination cell */
@@ -198,7 +198,14 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		}
 
 		else { 
+			if(write_dst_cell->type & SQUIRREL)
+				new_ate_squirrel = 1;
+			else
+				new_ate_squirrel = 0;
+			
 			*write_dst_cell = *read_src_cell;
+			write_dst_cell->ate_squirrel = new_ate_squirrel;
+
 			/* Check if the wolf is eating a squirrel */
 			if(read_dst_cell->type & SQUIRREL) {
 				write_dst_cell->ate_squirrel = 1;				
@@ -231,7 +238,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 				write_dst_cell->type = SQUIRREL;
 		}
 	}
-	write_dst_cell->breeding_period = new_breeding_p;
+	write_dst_cell->breed = new_breeding_p;
 }
 /*
  * get_cells_with_squirrels: Return the number of the cells
@@ -362,11 +369,23 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
 				else {
 					write_cell->starvation_period--;
 				}
-				write_cell->breeding_period--;
+				if(write_cell->breed) {
+					write_cell->breed = 0;
+					write_cell->breeding_period = w_breeding_p;
+				}
+				else {
+					write_cell->breeding_period--;
+				}
 			}
 
 			else if(write_cell->type & SQUIRREL) {
-				write_cell->breeding_period--;
+				if(write_cell->breed) {
+					write_cell->breed = 0;
+					write_cell->breeding_period = s_breeding_p;
+				}
+				else {
+					write_cell->breeding_period--;
+				}
 			}
         }
     }
@@ -522,7 +541,7 @@ void process_generations() {
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
 		}
-        update_periods(worlds[0], worlds[1]);
+		update_periods(worlds[0], worlds[1]);
 	}
 }
 

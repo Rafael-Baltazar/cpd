@@ -7,7 +7,7 @@
 
 
 #My own tests
-PARAMETERS="500 500 1000 1000000"
+PARAMETERS="500 1000 1000000"
 
 FILES=tests/*.in
 for f in $FILES
