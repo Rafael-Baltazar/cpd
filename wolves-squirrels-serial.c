@@ -354,13 +354,6 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
 				else {
 					write_cell->starvation_period--;
 				}
-				/*if(read_cell->type & SQUIRREL) {
-					printf("Ate a squirrel\n");
-					write_cell->starvation_period = w_starvation_p;
-				}
-				else {
-					write_cell->starvation_period--;
-				}*/
 				write_cell->breeding_period--;
 			}
 
@@ -405,7 +398,6 @@ void print_all_cells(){
 	char type;
 	struct world cell;
 
-	printf("%d\n", max_size);
 	for(i = 0; i < max_size; i++) {
 		for(j = 0; j < max_size; j++) {
             cell = worlds[1][i][j];

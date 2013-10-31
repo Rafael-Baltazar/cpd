@@ -176,7 +176,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		new_breeding_p = read_src_cell->breeding_period;
 	}
 
-#pragma omp critical(move)
+/*#pragma omp critical(move)*/
 	{
 	/* What will be the content of destination cell */
 	if(read_src_cell->type & WOLF) {
@@ -286,12 +286,14 @@ void update_squirrel(struct world **read_matrix, struct world **write_matrix, in
 	int may_move[N_ADJACENTS];
 	int n_possibilities, n_moves;
 	int chosen;
-	
-	n_possibilities = get_adjacents(row, col, possibilities);
+#pragma omp critical(update)	
+	{
+		n_possibilities = get_adjacents(row, col, possibilities);
 	n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
 	if(n_moves) {
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen], read_matrix, write_matrix);
+	}
 	}	
  }
 
@@ -306,11 +308,12 @@ void update_wolf(struct world **read_matrix, struct world **write_matrix, int ro
 	int chosen;
     struct world *wolf = &write_matrix[row][col];
 	n_possibilities = get_adjacents(row, col, possibilities);
-
-    if(!wolf->starvation_period) {
+#pragma omp critical(update)
+	{
+   	if(!wolf->starvation_period) {
         kill_wolf(wolf);
-        return;
-    }
+		n_possibilities = 0;
+	}
 	/*If has adjacents to choose*/
 	if(n_possibilities) {
 		/*Check for squirrels*/
@@ -338,6 +341,7 @@ void update_wolf(struct world **read_matrix, struct world **write_matrix, int ro
 			}
 		}
 	}
+	}
 }
 
 void update_periods(struct world **read_matrix, struct world **write_matrix) {
@@ -359,13 +363,6 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
 				else {
 					write_cell->starvation_period--;
 				}
-				/*if(read_cell->type & SQUIRREL) {
-					printf("Ate a squirrel\n");
-					write_cell->starvation_period = w_starvation_p;
-				}
-				else {
-					write_cell->starvation_period--;
-				}*/
 				write_cell->breeding_period--;
 			}
 
@@ -412,7 +409,6 @@ void print_all_cells(){
 	char type;
 	struct world cell;
 
-	printf("%d\n", max_size);
 	for(i = 0; i < max_size; i++) {
 		for(j = 0; j < max_size; j++) {
             cell = worlds[1][i][j];
@@ -529,41 +525,24 @@ void process_generations() {
 			swap_matrix();
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
-			/*printf("Read matrix\n");
-			print_for_debug(worlds[0]);
-			printf("Write matrix\n");
-			print_for_debug(worlds[1]);*/
 		}
         update_periods(worlds[0], worlds[1]);
 	}
 }
 
 int main(int argc, char **argv) {
-   double start = 0, end;
-
 	if(argc >= N_ARGS) {
 		w_breeding_p = atoi(argv[2]);
 		s_breeding_p = atoi(argv[3]);
 		w_starvation_p = atoi(argv[4]);		
 		num_gen = atoi(argv[5]);
-		/* Count time ? */
-		if(argc > N_ARGS) {
-			if(!strcmp(argv[6], "time")) {
-				start = omp_get_wtime();
-			}
-		}
 		populate_world_from_file(argv[1]);
 	    process_generations();
 	    print_all_cells();
-
-		if(start) {
-			end = omp_get_wtime();
-			fprintf(stdout, "Time: %f\n", end - start);
-		}
 	}
 	else {
 		printf("Usage: wolves-squirrels-parallel <input file name> <wolf_breeding_period> ");
-		printf("<squirrel_breeding_period> <wolf_startvation_period> <# of generations> [time]\n");
+		printf("<squirrel_breeding_period> <wolf_startvation_period> <# of generations>\n");
 	}
 	return 0;	
 }
