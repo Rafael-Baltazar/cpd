@@ -144,7 +144,7 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
  * period is 0
  */
 void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, struct world **write_matrix) {
-	int dest_row, dest_col, new_breeding_p, old_ate_squirrel;
+	int dest_row, dest_col, new_breeding_p, new_ate_squirrel;
 	struct world *read_src_cell = &read_matrix[src_row][src_col];	
 	struct world *read_dst_cell;
 	struct world *write_src_cell = &write_matrix[src_row][src_col];
@@ -179,21 +179,22 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 	if(read_src_cell->type & WOLF) {
 		/* Check if the wolf is competing against other wolf */
 		if(write_dst_cell->type & WOLF) {
-			old_ate_squirrel = write_dst_cell->ate_squirrel;
+			if(read_dst_cell->type & SQUIRREL) {
+				new_ate_squirrel = 1;
+			}
+			else {
+				new_ate_squirrel = 0;
+			}
+
 			if(read_src_cell->starvation_period > write_dst_cell->starvation_period) {
 				*write_dst_cell = *read_src_cell;
-				if(old_ate_squirrel) {
-					write_dst_cell->ate_squirrel = old_ate_squirrel;
-				}
 			}
 			else if(read_src_cell->starvation_period == write_dst_cell->starvation_period) {
 				if(read_src_cell->breeding_period < write_dst_cell->breeding_period) {
 					*write_dst_cell = *read_src_cell;
-					if(old_ate_squirrel) {
-						write_dst_cell->ate_squirrel = old_ate_squirrel;
-					}
 				}
 			}
+			write_dst_cell->ate_squirrel = new_ate_squirrel;
 		}
 
 		else { 
