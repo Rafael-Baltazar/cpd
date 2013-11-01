@@ -15,6 +15,12 @@ P_FLAGS=-fopenmp
 DEBUGGER=ddd
 TMP_OUT=tmp.out
 
+#Final delivery
+GROUP_NUMBER=9
+OMP=omp
+ZIP_FILENAME=deliver/g$(GROUP_NUMBER)
+ZIP_FILES=$(SERIAL_C) $(PARALLEL_C)
+
 all: serial parallel maketest
 
 parallel: $(PARALLEL_EXE)
@@ -56,6 +62,10 @@ debug-serial: serial
 
 debug-parallel: parallel
 	$(DEBUGGER) ./$(PARALLEL_EXE)
+
+# Target for generating a zip to deliver the final version to the teachers
+zipomp: $(SERIAL_C) $(PARALLEL_C)
+	zip $(ZIP_FILENAME)$(OMP) $(ZIP_FILES)
 
 clean:
 	rm -rf *.o $(SERIAL_EXE) $(PARALLEL_EXE) $(TMP_OUT)
