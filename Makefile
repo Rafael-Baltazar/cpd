@@ -66,7 +66,7 @@ debug-parallel: parallel
 
 # Target for generating a zip to deliver the final version to the teachers
 zipomp: $(SERIAL_C) $(PARALLEL_C) $(REPORT_OMP_FILENAME)
-	zip $(ZIP_FILENAME)$(OMP) $(ZIP_FILES) $(REPORT_OMP_FILENAME)
+	zip -j $(ZIP_FILENAME)$(OMP) $(ZIP_FILES) $(REPORT_OMP_FILENAME)
 
 clean:
 	rm -rf *.o $(SERIAL_EXE) $(PARALLEL_EXE) $(TMP_OUT)
