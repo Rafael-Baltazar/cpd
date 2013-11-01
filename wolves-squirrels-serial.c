@@ -144,7 +144,7 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
  * period is 0
  */
 void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, struct world **write_matrix) {
-	int dest_row, dest_col, new_breeding_p, new_ate_squirrel;
+	int dest_row, dest_col, new_breed_flag, new_ate_squirrel;
 	struct world *read_src_cell = &read_matrix[src_row][src_col];	
 	struct world *read_dst_cell;
 	struct world *write_src_cell = &write_matrix[src_row][src_col];
@@ -159,12 +159,12 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		*write_src_cell = *read_src_cell;
 		if(read_src_cell->type & SQUIRREL) {
 			write_src_cell->breeding_period = s_breeding_p;
-			new_breeding_p = 1;
+			new_breed_flag = 1;
 		}
 		else {
 			write_src_cell->breeding_period = w_breeding_p;
 			write_src_cell->starvation_period = w_starvation_p;
-			new_breeding_p = 1;
+			new_breed_flag = 1;
 		}
 	}
 	else {
@@ -172,7 +172,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		write_src_cell->type = read_src_cell->type & TREE;
 		write_src_cell->breeding_period = 0;
 		write_src_cell->starvation_period = 0;
-		new_breeding_p = 0;
+		new_breed_flag = 0;
 	}
 
 	/* What will be the content of destination cell */
@@ -188,10 +188,12 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 
 			if(read_src_cell->starvation_period > write_dst_cell->starvation_period) {
 				*write_dst_cell = *read_src_cell;
+				write_dst_cell->breed = new_breed_flag;
 			}
 			else if(read_src_cell->starvation_period == write_dst_cell->starvation_period) {
 				if(read_src_cell->breeding_period < write_dst_cell->breeding_period) {
 					*write_dst_cell = *read_src_cell;
+					write_dst_cell->breed = new_breed_flag;
 				}
 			}
 			write_dst_cell->ate_squirrel = new_ate_squirrel;
@@ -204,6 +206,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 				new_ate_squirrel = 0;
 			
 			*write_dst_cell = *read_src_cell;
+			write_dst_cell->breed = new_breed_flag;
 			write_dst_cell->ate_squirrel = new_ate_squirrel;
 
 			/* Check if the wolf is eating a squirrel */
@@ -222,7 +225,8 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		else if(write_dst_cell->type & SQUIRREL) {
 		/* Check if the squirrel is competing against other squirrel */
 			if(read_src_cell->breeding_period < write_dst_cell->breeding_period) {
-				*write_dst_cell = *read_src_cell; 
+				*write_dst_cell = *read_src_cell;
+			   write_dst_cell->breed = new_breed_flag;	   
 				/* Prevent moving trees or deleting existing ones */
 				if (read_dst_cell->type & TREE)
 					write_dst_cell->type = SQUIRRELnTREE;
@@ -231,6 +235,7 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 			}
 		} else {
 			*write_dst_cell = *read_src_cell; 
+			write_dst_cell->breed = new_breed_flag;
 			/* Prevent moving trees or deleting existing ones */
 			if (read_dst_cell->type & TREE)
 				write_dst_cell->type = SQUIRRELnTREE;
@@ -238,7 +243,6 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 				write_dst_cell->type = SQUIRREL;
 		}
 	}
-	write_dst_cell->breed = new_breeding_p;
 }
 /*
  * get_cells_with_squirrels: Return the number of the cells

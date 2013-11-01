@@ -144,7 +144,7 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
  * period is 0
  */
 void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, struct world **write_matrix) {
-	int dest_row, dest_col, new_breeding_p, new_ate_squirrel;
+	int dest_row, dest_col, new_breed_flag, new_ate_squirrel;
 	struct world *read_src_cell = &read_matrix[src_row][src_col];	
 	struct world *read_dst_cell;
 	struct world *write_src_cell = &write_matrix[src_row][src_col];
@@ -159,12 +159,12 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		*write_src_cell = *read_src_cell;
 		if(read_src_cell->type & SQUIRREL) {
 			write_src_cell->breeding_period = s_breeding_p;
-			new_breeding_p = 1;
+			new_breed_flag = 1;
 		}
 		else {
 			write_src_cell->breeding_period = w_breeding_p;
 			write_src_cell->starvation_period = w_starvation_p;
-			new_breeding_p = 1;
+			new_breed_flag = 1;
 		}
 	}
 	else {
@@ -172,11 +172,13 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 		write_src_cell->type = read_src_cell->type & TREE;
 		write_src_cell->breeding_period = 0;
 		write_src_cell->starvation_period = 0;
-		new_breeding_p = 0;
+		new_breed_flag = 0;
 	}
 
 	/* What will be the content of destination cell */
 	if(read_src_cell->type & WOLF) {
+#pragma omp critical(move)
+		{
 		/* Check if the wolf is competing against other wolf */
 		if(write_dst_cell->type & WOLF) {
 			if(read_dst_cell->type & SQUIRREL) {
@@ -188,16 +190,18 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 
 			if(read_src_cell->starvation_period > write_dst_cell->starvation_period) {
 				*write_dst_cell = *read_src_cell;
+				write_dst_cell->breed = new_breed_flag;
 			}
 			else if(read_src_cell->starvation_period == write_dst_cell->starvation_period) {
 				if(read_src_cell->breeding_period < write_dst_cell->breeding_period) {
 					*write_dst_cell = *read_src_cell;
+					write_dst_cell->breed = new_breed_flag;
 				}
 			}
 			write_dst_cell->ate_squirrel = new_ate_squirrel;
 		}
-
-		else { 
+		
+		else {
 			if(write_dst_cell->type & SQUIRREL)
 				new_ate_squirrel = 1;
 			else
@@ -205,40 +209,49 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 			
 			*write_dst_cell = *read_src_cell;
 			write_dst_cell->ate_squirrel = new_ate_squirrel;
+			write_dst_cell->breed = new_breed_flag;
 
 			/* Check if the wolf is eating a squirrel */
 			if(read_dst_cell->type & SQUIRREL) {
 				write_dst_cell->ate_squirrel = 1;				
 			}
 		}
+		}
 	}
 
-	else if(read_src_cell->type & SQUIRREL) {	
+	else if(read_src_cell->type & SQUIRREL) {
+#pragma omp critical(move)
+		{
 		/* Check if the squirrel is competing against a wolf */
 		if(write_dst_cell->type & WOLF) {
 			/* Suicide move */
 			write_dst_cell->ate_squirrel = 1;
 		}
-		else if(write_dst_cell->type & SQUIRREL) {
-		/* Check if the squirrel is competing against other squirrel */
-			if(read_src_cell->breeding_period < write_dst_cell->breeding_period) {
+		else {
+			if(write_dst_cell->type & SQUIRREL) {
+				/* Check if the squirrel is competing against other squirrel */
+				if(read_src_cell->breeding_period < write_dst_cell->breeding_period) {
+					*write_dst_cell = *read_src_cell; 
+					write_dst_cell->breed = new_breed_flag;
+					/* Prevent moving trees or deleting existing ones */
+					if (read_dst_cell->type & TREE)
+						write_dst_cell->type = SQUIRRELnTREE;
+					else 
+						write_dst_cell->type = SQUIRREL;
+				}
+			}
+			else {
 				*write_dst_cell = *read_src_cell; 
+				write_dst_cell->breed = new_breed_flag;
 				/* Prevent moving trees or deleting existing ones */
 				if (read_dst_cell->type & TREE)
 					write_dst_cell->type = SQUIRRELnTREE;
 				else 
 					write_dst_cell->type = SQUIRREL;
 			}
-		} else {
-			*write_dst_cell = *read_src_cell; 
-			/* Prevent moving trees or deleting existing ones */
-			if (read_dst_cell->type & TREE)
-				write_dst_cell->type = SQUIRRELnTREE;
-			else 
-				write_dst_cell->type = SQUIRREL;
+		}
 		}
 	}
-	write_dst_cell->breed = new_breeding_p;
 }
 /*
  * get_cells_with_squirrels: Return the number of the cells
@@ -298,14 +311,11 @@ void update_squirrel(struct world **read_matrix, struct world **write_matrix, in
 	int n_possibilities, n_moves;
 	int chosen;
 
-#pragma omp critical(update)
-	{	
 	n_possibilities = get_adjacents(row, col, possibilities);
 	n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
 	if(n_moves) {
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen], read_matrix, write_matrix);
-	}
 	}
  }
 
@@ -321,10 +331,10 @@ void update_wolf(struct world **read_matrix, struct world **write_matrix, int ro
     struct world *wolf = &write_matrix[row][col];
 	n_possibilities = get_adjacents(row, col, possibilities);
 
-#pragma omp critical(update)
-	{
 	if(!wolf->starvation_period) {
+#pragma omp critical(move)
         kill_wolf(wolf);
+
         n_possibilities = 0;
     }
 	/*If has adjacents to choose*/
@@ -354,13 +364,13 @@ void update_wolf(struct world **read_matrix, struct world **write_matrix, int ro
 			}
 		}
 	}
-	}
 }
 
 void update_periods(struct world **read_matrix, struct world **write_matrix) {
     int i, j;
     struct world /*read_cell,*/ *write_cell;
 
+#pragma omp parallel for private(j, write_cell)	
     for(i = 0; i < max_size; i++) {
         for(j = 0; j < max_size; j++) {
 			/*read_cell = &read_matrix[i][j];*/
