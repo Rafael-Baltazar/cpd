@@ -27,6 +27,7 @@
 #define BLACK 1
 
 #define N_COLORS 2
+#define JUMPS 3			/*Any less will result in thread conflict*/
 
 int max_size;
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
@@ -177,8 +178,6 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 
 	/* What will be the content of destination cell */
 	if(read_src_cell->type & WOLF) {
-#pragma omp critical(move)
-		{
 		/* Check if the wolf is competing against other wolf */
 		if(write_dst_cell->type & WOLF) {
 			if(read_dst_cell->type & SQUIRREL) {
@@ -216,12 +215,9 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 				write_dst_cell->ate_squirrel = 1;				
 			}
 		}
-		}
 	}
 
 	else if(read_src_cell->type & SQUIRREL) {
-#pragma omp critical(move)
-		{
 		/* Check if the squirrel is competing against a wolf */
 		if(write_dst_cell->type & WOLF) {
 			/* Suicide move */
@@ -249,7 +245,6 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 				else 
 					write_dst_cell->type = SQUIRREL;
 			}
-		}
 		}
 	}
 }
@@ -332,7 +327,6 @@ void update_wolf(struct world **read_matrix, struct world **write_matrix, int ro
 	n_possibilities = get_adjacents(row, col, possibilities);
 
 	if(!wolf->starvation_period) {
-#pragma omp critical(move)
         kill_wolf(wolf);
 
         n_possibilities = 0;
@@ -407,31 +401,39 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
     }
 }
 
+void process_line(int i, int color, struct world** read_matrix, struct world** write_matrix) {
+	int start_col, j;
+
+	if(get_cell_color(i, 0) == color) {
+		start_col = 0;
+	}
+	else {
+		start_col = 1;
+	}
+
+	for(j = start_col; j < max_size; j += N_COLORS) {
+		if(read_matrix[i][j].type & WOLF) {
+			update_wolf(read_matrix, write_matrix, i,j);
+		}
+		else if(read_matrix[i][j].type & SQUIRREL) {
+			update_squirrel(read_matrix, write_matrix, i,j);
+		}
+	}
+}
 /*
  * Updates only the wolf and squirrels that belong to a specific subgeneration.
  * color: the color of the subgeneration to be updated.
+ * To avoid parallelism conflicts, it jumps every JUMPS lines.
  */
 void iterate_subgeneration(int color) {
-	int i, j, start_col;
+	int jump, i;
     struct world **read_matrix = worlds[0];
     struct world **write_matrix = worlds[1];
 
-#pragma omp parallel for private(start_col, j)
-	for(i = 0; i < max_size; i++) {
-        if(get_cell_color(i, 0) == color) {
-            start_col = 0;
-        }
-        else {
-            start_col = 1;
-        }
-    
-		for(j = start_col; j < max_size; j += N_COLORS) {
-            if(read_matrix[i][j].type & WOLF) {
-				update_wolf(read_matrix, write_matrix, i,j);
-            }
-			else if(read_matrix[i][j].type & SQUIRREL) {
-                update_squirrel(read_matrix, write_matrix, i,j);
-			}
+	for(jump = 0; jump < JUMPS; jump++) {
+#pragma omp parallel for
+		for(i = jump; i < max_size; i += JUMPS) {
+		  	process_line(i, color, read_matrix, write_matrix); 
 		}
 	}
 }
