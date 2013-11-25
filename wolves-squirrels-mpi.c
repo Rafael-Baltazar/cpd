@@ -31,7 +31,7 @@
 
 int max_size;
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
-int id, nprocs;
+int id, nprocs, num_lines;
 MPI_Datatype mpi_world_type;
 
 #define TAG 101
@@ -364,7 +364,7 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
     int i, j;
     struct world /*read_cell,*/ *write_cell;
 
-    for(i = 0; i < max_size; i++) {
+    for(i = 0; i < num_lines; i++) {
         for(j = 0; j < max_size; j++) {
 			/*read_cell = &read_matrix[i][j];*/
 			write_cell = &write_matrix[i][j];
@@ -409,7 +409,7 @@ void iterate_subgeneration(int color) {
     struct world **read_matrix = worlds[0];
     struct world **write_matrix = worlds[1];
 
-	for(i = 0; i < max_size; i++) {
+	for(i = 0; i < num_lines; i++) {
         if(get_cell_color(i, 0) == color) {
             start_col = 0;
         }
@@ -525,10 +525,9 @@ void create_mpi_datatype() {
  * Alloc memory for worlds
  */
 void init_worlds() {
-	int  i, j, row_size, num_lines;
+	int  i, j, row_size;
 	struct world *all_positions;
 
-	num_lines = get_num_lines(max_size, nprocs, id);
 	row_size = num_lines * sizeof(struct world*);
 
 	for(i = 0; i < N_COLORS; i++) {
@@ -545,16 +544,17 @@ void init_worlds() {
  * Distributes the worlds by an aproximate number of lines to each process
  */
 void scatter_matrix() {
-	int i, num_lines, size, row_size, begin_index = 0;
+	int i, size, row_size, proc_num_lines, begin_index = 0;
 
 	MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	num_lines = get_num_lines(max_size, nprocs, id);
 
 	if(!id) {
+		/* Send some lines of the matrix to the other processors*/
 		for(i = 1; i < nprocs; i++) {
 			begin_index += num_lines;
-			num_lines = get_num_lines(max_size, nprocs, i);
-			MPI_Send(worlds[0][begin_index], num_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
+			proc_num_lines = get_num_lines(max_size, nprocs, i);
+			MPI_Send(worlds[0][begin_index], proc_num_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
 		}
 	} else {
 		init_worlds();
@@ -641,14 +641,15 @@ int main(int argc, char **argv) {
 		MPI_Init(&argc, &argv);
 		MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 		MPI_Comm_rank(MPI_COMM_WORLD, &id);
-
+		
+		/*Only the master thread has the entire matrix*/
 		if(!id)
 			populate_world_from_file(argv[1]);
 		
 		create_mpi_datatype();
 		scatter_matrix();
-		/*
 	    process_generations();
+		/*
 		gather_matrix();
 		*/
 	   

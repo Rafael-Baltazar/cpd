@@ -80,6 +80,9 @@ debug-serial: serial
 debug-parallel: parallel
 	$(DEBUGGER) ./$(PARALLEL_EXE)
 
+debug-mpi: mpi
+	$(DEBUGGER) ./$(MPI_EXE)
+
 # Target for generating a zip to deliver the final version to the teachers
 zipomp: $(SERIAL_C) $(PARALLEL_C) $(REPORT_OMP_FILENAME)
 	zip -j $(ZIP_FILENAME)$(OMP) $(ZIP_FILES) $(REPORT_OMP_FILENAME)
