@@ -32,7 +32,10 @@
 int max_size;
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 int id, nprocs;
+MPI_Datatype mpi_world_type;
 
+#define TAG 101
+#define NITEMS 5
 #define N_ADJACENTS	4
 
  /* Main arguments */
@@ -47,7 +50,7 @@ struct world {
  	int starvation_period;
 	int ate_squirrel;
 	int breed;
- } **worlds[N_COLORS]; 
+} **worlds[N_COLORS]; 
 
 
 void swap_matrix(){
@@ -499,55 +502,66 @@ int get_num_lines(int size, int nprocs, int id) {
 	else
 		return n;
 }
-void scatter_matrix() {
-	int i, num_lines, begin_index = 0, buffer[] = {1, 2, 3, 4, 5};
-	
-	if(!id) {
 
-		for(i = 1; i < nprocs; i++) {
-			printf("Sending line %d\n", i);
-			MPI_Send(buffer, 5, MPI_INT, id, 0, MPI_COMM_WORLD);
+/*
+ * Creates MPI_Datatype and commits it
+ */
+void create_mpi_datatype() {
+	int blocklengths[NITEMS] = {1, 1, 1, 1, 1};
+	MPI_Datatype types[NITEMS] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+	MPI_Aint offsets[NITEMS];
+
+	offsets[0] = offsetof(struct world, type);
+ 	offsets[1] = offsetof(struct world, breeding_period);
+ 	offsets[2] = offsetof(struct world, starvation_period);
+	offsets[3] = offsetof(struct world, ate_squirrel);
+	offsets[4] = offsetof(struct world, breed);
+
+	MPI_Type_create_struct(NITEMS, blocklengths, offsets, types, &mpi_world_type);
+	MPI_Type_commit(&mpi_world_type);
+}
+
+/*
+ * Alloc memory for worlds
+ */
+void init_worlds() {
+	int  i, j, row_size, num_lines;
+	struct world *all_positions;
+
+	num_lines = get_num_lines(max_size, nprocs, id);
+	row_size = num_lines * sizeof(struct world*);
+
+	for(i = 0; i < N_COLORS; i++) {
+		worlds[i] = (struct world**) malloc(row_size);
+		all_positions = (struct world*) malloc(num_lines * max_size * sizeof(struct world));
+
+		for(j = 0; j < num_lines; j++) {
+			worlds[i][j] = all_positions + (j * max_size);
 		}
-	} else {
-		printf("Receiving line %d\n", id);
-		MPI_Recv(buffer, 5, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-		printf("me: %d. ", id);
-		for(i = 0; i < 5; i++)
-			printf("%d, ", buffer[i]);
-		printf("\n");
 	}
 }
 
-void scatter_matrix_temp() {
-	int i, num_lines, begin_index = 0, *buffer;
+/*
+ * Distributes the worlds by an aproximate number of lines to each process
+ */
+void scatter_matrix() {
+	int i, num_lines, size, row_size, begin_index = 0;
 
+	MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	num_lines = get_num_lines(max_size, nprocs, id);
-	
-	if(!id) {
-		num_lines = get_num_lines(max_size, nprocs, id);
-		buffer = (int*) malloc(sizeof(int) * num_lines * max_size);
-		memset(buffer, 042, sizeof(int) * num_lines * max_size);
 
+	if(!id) {
 		for(i = 1; i < nprocs; i++) {
-			printf("Sending line %d\n", i);
-			num_lines = get_num_lines(max_size, nprocs, i);
-			MPI_Send(buffer, num_lines * max_size, MPI_INT, id, 0,
-				   	MPI_COMM_WORLD);
 			begin_index += num_lines;
+			num_lines = get_num_lines(max_size, nprocs, i);
+			MPI_Send(worlds[0][begin_index], num_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
 		}
 	} else {
-		printf("Receiving line %d\n", id);
-		buffer = (int*) malloc(sizeof(int) * num_lines * max_size);
-		MPI_Recv(buffer, num_lines * max_size, MPI_INT, 0, 0, 
-				MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		init_worlds();
 
-		printf("me: %d. ", id);
-		for(i = 0; i < num_lines * max_size; i++) {
-			printf("%d, ", buffer[i]);
-		}
-		printf("\n");
-		//receive
+		MPI_Recv(worlds[0][0], num_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		memcpy(worlds[1], worlds[0], num_lines * max_size);
+		printf("Received: %d %d %d\n", worlds[0][0][0].type,  worlds[0][0][1].type,  worlds[0][0][2].type);
 	}
 }
 
@@ -631,16 +645,18 @@ int main(int argc, char **argv) {
 		if(!id)
 			populate_world_from_file(argv[1]);
 		
+		create_mpi_datatype();
 		scatter_matrix();
 		/*
 	    process_generations();
 		gather_matrix();
-		
+		*/
+	   
 		if(!id)
-		   print_all_cells();
-		 */
+			print_all_cells();
 
-		MPI_Finalize();		
+		MPI_Barrier(MPI_COMM_WORLD);
+		MPI_Finalize();
 		}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
