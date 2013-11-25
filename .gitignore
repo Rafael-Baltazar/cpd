@@ -19,6 +19,7 @@
 wolves-squirrels-serial
 wolves-squirrels-parallel
 wolves-squirrels-serial-I
+wolves-squirrels-mpi
 make_test
 
 *.*~

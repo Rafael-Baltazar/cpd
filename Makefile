@@ -6,12 +6,18 @@ SERIAL_O=wolves-squirrels-serial.o
 PARALLEL_EXE=wolves-squirrels-parallel
 PARALLEL_C=wolves-squirrels-parallel.c
 PARALLEL_O=wolves-squirrels-parallel.o
+MPI_EXE=wolves-squirrels-mpi
+MPI_O=$(MPI_EXE).o
+MPI_C=$(MPI_EXE).c
 MAKE_TEST_EXE=make_test
 MAKE_TEST_O=make_test.o
 MAKE_TEST_C=make_test.c
 CC=gcc
+MPICC=mpicc
+MPI_RUN=mpirun
 FLAGS=-Wall -pedantic -g
 P_FLAGS=-fopenmp
+MPI_FLAGS=
 DEBUGGER=ddd
 TMP_OUT=tmp.out
 
@@ -22,11 +28,13 @@ REPORT_OMP_FILENAME=docs/g$(GROUP_NUMBER)_$(OMP)_report.pdf
 ZIP_FILENAME=deliver/g$(GROUP_NUMBER)
 ZIP_FILES=$(SERIAL_C) $(PARALLEL_C)
 
-all: serial parallel maketest
+all: serial parallel mpi maketest
+
+serial: $(SERIAL_EXE)
 
 parallel: $(PARALLEL_EXE)
 
-serial: $(SERIAL_EXE)
+mpi: $(MPI_EXE)
 
 maketest: $(MAKE_TEST_EXE)
 
@@ -36,13 +44,18 @@ $(MAKE_TEST_EXE): $(MAKE_TEST_O)
 $(MAKE_TEST_O): $(MAKE_TEST_C)
 	$(CC) -c $(MAKE_TEST_C) -o $(MAKE_TEST_O)  $(FLAGS)
 
-$(PARALLEL_EXE): $(PARALLEL_O)
-	$(CC) $(P_FLAGS) -o $(PARALLEL_EXE) $(PARALLEL_O)
+$(MPI_O): $(MPI_C)
+	$(MPICC) $(MPI_FLAGS) -c $(MPI_C) -o $(MPI_O)
+
+$(MPI_EXE): $(MPI_O)
+	$(MPICC) $(MPI_FLAGS) -o $(MPI_EXE) $(MPI_O)
 
 $(PARALLEL_O): $(PARALLEL_C)
 	$(CC) $(P_FLAGS) -c $(PARALLEL_C) -o $(PARALLEL_O) $(FLAGS)
 
-	
+$(PARALLEL_EXE): $(PARALLEL_O)
+	$(CC) $(P_FLAGS) -o $(PARALLEL_EXE) $(PARALLEL_O)
+
 $(SERIAL_EXE): $(SERIAL_O)
 	$(CC) -o $(SERIAL_EXE) $(SERIAL_O)
 
@@ -54,6 +67,9 @@ run-serial: serial
 	
 run-parallel: parallel
 	time ./$(PARALLEL_EXE) tests/world_100.in 2 2 800 1000000
+
+run-mpi: mpi
+	$(MPI_RUN) -np 8 $(MPI_EXE) data 10 10 10 10
 
 test: serial parallel
 	./test.sh
@@ -69,4 +85,4 @@ zipomp: $(SERIAL_C) $(PARALLEL_C) $(REPORT_OMP_FILENAME)
 	zip -j $(ZIP_FILENAME)$(OMP) $(ZIP_FILES) $(REPORT_OMP_FILENAME)
 
 clean:
-	rm -rf *.o $(SERIAL_EXE) $(PARALLEL_EXE) $(TMP_OUT)
+	rm -rf *.o $(SERIAL_EXE) $(PARALLEL_EXE) $(MPI_EXE) $(TMP_OUT)
