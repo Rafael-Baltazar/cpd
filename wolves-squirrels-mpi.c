@@ -526,7 +526,7 @@ void create_mpi_datatype() {
 /*
  * Alloc memory for worlds
  */
-void init_worlds() {
+void init_worlds(int ghost_lines) {
 	int  i, j, row_size;
 	struct world *all_positions;
 
@@ -579,12 +579,16 @@ void scatter_matrix() {
 		/* Send some lines of the matrix to the other processors*/
 		for(i = 1; i < nprocs; i++) {
 			begin_index += num_lines;
+			ghost_lines_start = ghost_lines_at_start(i);
+			ghost_lines_end = ghost_lines_at_end(i);
 			proc_num_lines = get_num_lines(max_size, nprocs, i);
-			MPI_Send(worlds[0][begin_index], (proc_num_lines) * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
+			MPI_Send(worlds[0][begin_index - ghost_lines_start], (proc_num_lines + ghost_lines_end) * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
 		}
 	} else {
-		init_worlds();
-		MPI_Recv(worlds[0][0], (num_lines) * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		ghost_lines_start = ghost_lines_at_start(id);
+		ghost_lines_end = ghost_lines_at_end(id);
+		init_worlds(ghost_lines_start + ghost_lines_end);
+		MPI_Recv(worlds[0][0], (num_lines + ghost_lines_start + ghost_lines_end) * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		memcpy(worlds[1], worlds[0], num_lines * max_size);
 		printf("Received: %d %d %d\n", worlds[0][0][0].type,  worlds[0][0][1].type,  worlds[0][0][2].type);
 	}
