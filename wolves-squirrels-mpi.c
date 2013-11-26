@@ -32,6 +32,7 @@
 int max_size;
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 int id, nprocs, num_lines;
+int ghost_lines_start, ghost_lines_end;
 MPI_Datatype mpi_world_type;
 
 #define TAG 101
@@ -570,27 +571,29 @@ int ghost_lines_at_end(int process_id) {
  * Distributes the worlds by an aproximate number of lines to each process
  */
 void scatter_matrix() {
-	int i, size, row_size, proc_num_lines, begin_index = 0, ghost_lines_start, ghost_lines_end;
+	int i, size, row_size, proc_num_lines, begin_index = 0;
+	int ghosts_start, ghosts_end, total_ghosts;	
 
 	MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	num_lines = get_num_lines(max_size, nprocs, id);
+
+	ghost_lines_start = ghost_lines_at_start(id);
+	ghost_lines_end = ghost_lines_at_end(id);
 
 	if(!id) {
 		/* Send some lines of the matrix to the other processors*/
 		for(i = 1; i < nprocs; i++) {
 			begin_index += num_lines;
-			ghost_lines_start = ghost_lines_at_start(i);
-			ghost_lines_end = ghost_lines_at_end(i);
+			ghosts_start = ghost_lines_at_start(i);
+			ghosts_end = ghost_lines_at_end(i);
 			proc_num_lines = get_num_lines(max_size, nprocs, i);
-			MPI_Send(worlds[0][begin_index - ghost_lines_start], (proc_num_lines + ghost_lines_end) * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
+			MPI_Send(worlds[0][begin_index - ghosts_start], (proc_num_lines + ghosts_end) * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
 		}
 	} else {
-		ghost_lines_start = ghost_lines_at_start(id);
-		ghost_lines_end = ghost_lines_at_end(id);
-		init_worlds(ghost_lines_start + ghost_lines_end);
-		MPI_Recv(worlds[0][0], (num_lines + ghost_lines_start + ghost_lines_end) * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		total_ghosts = ghost_lines_start + ghost_lines_end;
+		init_worlds(total_ghosts);
+		MPI_Recv(worlds[0][0], (num_lines + total_ghosts) * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		memcpy(worlds[1], worlds[0], num_lines * max_size);
-		printf("Received: %d %d %d\n", worlds[0][0][0].type,  worlds[0][0][1].type,  worlds[0][0][2].type);
 	}
 }
 
