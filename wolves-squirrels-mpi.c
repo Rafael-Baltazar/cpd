@@ -38,6 +38,8 @@ MPI_Datatype mpi_world_type;
 #define NITEMS 5
 #define N_ADJACENTS	4
 
+#define GHOST_LINES 1
+
  /* Main arguments */
 #define N_ARGS 6
 
@@ -541,10 +543,34 @@ void init_worlds() {
 }
 
 /*
+ * start_ghost_lines: Get how many ghost lines the process
+ *	will receive before the real ones
+ */
+int ghost_lines_at_start(int process_id) {
+	/* A process in the middle will always have ghost line at the start */
+	if((process_id < (nprocs - 1)) && (process_id)) {
+		return GHOST_LINES;
+	}
+	else {
+		return 0;
+	}
+}
+
+int ghost_lines_at_end(int process_id) {
+	/* Only the last process will not have ghost lines at the end */
+	if(process_id != (nprocs - 1)) {
+		return GHOST_LINES;
+	}
+	else {
+		return 0;
+	}
+}
+
+/*
  * Distributes the worlds by an aproximate number of lines to each process
  */
 void scatter_matrix() {
-	int i, size, row_size, proc_num_lines, begin_index = 0;
+	int i, size, row_size, proc_num_lines, begin_index = 0, ghost_lines_start, ghost_lines_end;
 
 	MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	num_lines = get_num_lines(max_size, nprocs, id);
@@ -554,12 +580,11 @@ void scatter_matrix() {
 		for(i = 1; i < nprocs; i++) {
 			begin_index += num_lines;
 			proc_num_lines = get_num_lines(max_size, nprocs, i);
-			MPI_Send(worlds[0][begin_index], proc_num_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
+			MPI_Send(worlds[0][begin_index], (proc_num_lines) * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
 		}
 	} else {
 		init_worlds();
-
-		MPI_Recv(worlds[0][0], num_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		MPI_Recv(worlds[0][0], (num_lines) * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		memcpy(worlds[1], worlds[0], num_lines * max_size);
 		printf("Received: %d %d %d\n", worlds[0][0][0].type,  worlds[0][0][1].type,  worlds[0][0][2].type);
 	}
