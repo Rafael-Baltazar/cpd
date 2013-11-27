@@ -412,7 +412,8 @@ void iterate_subgeneration(int color) {
     struct world **read_matrix = worlds[0];
     struct world **write_matrix = worlds[1];
 
-	for(i = 0; i < num_lines; i++) {
+	/* Don't process the ghost lines */
+	for(i = ghost_lines_start; i < num_lines - ghost_lines_end; i++) {
         if(get_cell_color(i, 0) == color) {
             start_col = 0;
         }
@@ -548,8 +549,8 @@ void init_worlds(int ghost_lines) {
  *	will receive before the real ones
  */
 int ghost_lines_at_start(int process_id) {
-	/* A process in the middle will always have ghost line at the start */
-	if((process_id < (nprocs - 1)) && (process_id)) {
+	/* Only the first process will not have ghost lines at the start */
+	if(process_id) {
 		return GHOST_LINES;
 	}
 	else {
@@ -688,6 +689,7 @@ int main(int argc, char **argv) {
 		if(!id)
 			print_all_cells();
 
+		printf("%d num lines: %d\n", id, num_lines + ghost_lines_start + ghost_lines_end);
 		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Finalize();
 		}
