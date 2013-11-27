@@ -432,6 +432,33 @@ void iterate_subgeneration(int color) {
 	}
 }
 
+void print_cell(int l, int c) {
+	char type;
+	struct world cell = worlds[1][l][c];
+
+	if(cell.type) {
+		if(cell.type & WOLF) {
+			type = 'w';
+		}
+		else if(cell.type & SQUIRREL) {
+			/*Squirrel and a tree*/
+			if(cell.type & TREE) {
+				type = '$';
+			}
+			else {
+				type = 's';
+			}
+		}
+		else if(cell.type & ICE) {
+			type = 'i';
+		}
+		else {
+			type = 't';
+		}
+		printf("%d %d %c\n", l, c, type);
+	}
+}
+
 /*prints the world*/
 void print_all_cells(){
 	int i, j;
@@ -440,31 +467,7 @@ void print_all_cells(){
 
 	for(i = 0; i < max_size; i++) {
 		for(j = 0; j < max_size; j++) {
-            cell = worlds[1][i][j];
-
-			if(cell.type) {
-				if(cell.type & WOLF) {
-					type = 'w';
-				}
-				else if(cell.type & SQUIRREL) {
-				/*Squirrel and a tree*/
-					if(cell.type & TREE) {
-						type = '$';
-					}
-					else {
-						type = 's';
-					}
-				}
-				else if(cell.type & ICE) {
-					type = 'i';
-				}
-				else {
-					type = 't';
-				}
-
-				printf("%d %d %c\n", i, j, type);
-			}
-			
+			print_cell(i, j);
 		}
 	}
 }
@@ -664,6 +667,21 @@ void process_generations() {
 	}
 }
 
+/*
+   * Just for debugging
+   */
+void print_process_lines() {
+	int i, j;
+
+	for(i = 0; i < num_lines + ghost_lines_start + ghost_lines_end; i++) {
+		for(j = 0; j < max_size; j++) {
+			printf("process: %d", id);
+			print_cell(i, j);
+		}
+	}
+}
+
+
 int main(int argc, char **argv) {
 	if(argc >= N_ARGS) {
 		w_breeding_p = atoi(argv[2]);
@@ -689,7 +707,6 @@ int main(int argc, char **argv) {
 		if(!id)
 			print_all_cells();
 
-		printf("%d num lines: %d\n", id, num_lines + ghost_lines_start + ghost_lines_end);
 		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Finalize();
 		}
