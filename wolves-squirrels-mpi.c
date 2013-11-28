@@ -72,6 +72,9 @@ inline void copy_matrix(struct world **src, struct world **dst) {
  *	matrix position (row, col)
  */ 
 inline int cell_number(int row, int col) {
+	if(id) {
+		row += get_num_lines(max_size, nprocs, id - 1) - 1;
+	}
 	return row * max_size + col;
 }
 
