@@ -147,6 +147,10 @@ int get_adjacents(int row, int col, int *adjacents) {
 inline void get_world_coordinates(int cell_number, int *row, int *col) {
 	*col = cell_number % max_size;
 	*row = (cell_number - *col) / max_size;
+	/* Adjust the line to the process matrix */
+	if(id) {
+		*row -= get_num_lines(max_size, nprocs, id - 1);
+	}
 }
 
 /* 
