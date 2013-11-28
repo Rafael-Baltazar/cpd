@@ -64,7 +64,7 @@ void swap_matrix(){
 }
 
 inline void copy_matrix(struct world **src, struct world **dst) {
-	memcpy(dst[0], src[0], sizeof(struct world) * max_size * max_size); 
+	memcpy(dst[0], src[0], sizeof(struct world) * (num_lines + ghost_lines_start + ghost_lines_end) * max_size); 
 }
  
 /*
@@ -73,7 +73,7 @@ inline void copy_matrix(struct world **src, struct world **dst) {
  */ 
 inline int cell_number(int row, int col) {
 	if(id) {
-		row += get_num_lines(max_size, nprocs, id - 1) - 1;
+		row += get_num_lines(max_size, nprocs, id - 1)*id - 1;
 	}
 	return row * max_size + col;
 }
@@ -149,7 +149,7 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
 	*row = (cell_number - *col) / max_size;
 	/* Adjust the line to the process matrix */
 	if(id) {
-		*row -= get_num_lines(max_size, nprocs, id - 1);
+		*row -= get_num_lines(max_size, nprocs, id - 1)*id - 1;
 	}
 }
 
@@ -248,7 +248,6 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 				else 
 					write_dst_cell->type = SQUIRREL;
 			}
-		} else {
 			*write_dst_cell = *read_src_cell; 
 			write_dst_cell->breed = new_breed_flag;
 			/* Prevent moving trees or deleting existing ones */
@@ -273,7 +272,9 @@ int get_cells_with_squirrels(struct world **world, int *possibilities, int n_pos
 	for (i = 0; i < n_possibilities; ++i)
 	{
 		get_world_coordinates(possibilities[i], &row, &col);
+		printf("id %d row %d col %d\n", id, row, col);
 		cell = world[row][col];
+		printf("id %d cell with squirrel\n", id);
 		if(cell.type == SQUIRREL) {
 			squirrels[found] = cell_number(row, col);
 			found++;
@@ -420,7 +421,7 @@ void iterate_subgeneration(int color) {
     struct world **write_matrix = worlds[1];
 
 	/* Don't process the ghost lines */
-	for(i = ghost_lines_start; i < num_lines - ghost_lines_end; i++) {
+	for(i = ghost_lines_start; i < num_lines + ghost_lines_start; i++) {
         if(get_cell_color(i, 0) == color) {
             start_col = 0;
         }
@@ -542,13 +543,13 @@ void init_worlds(int ghost_lines) {
 	int  i, j, row_size;
 	struct world *all_positions;
 
-	row_size = num_lines * sizeof(struct world*);
+	row_size = (num_lines + ghost_lines) * sizeof(struct world*);
 
 	for(i = 0; i < N_COLORS; i++) {
 		worlds[i] = (struct world**) malloc(row_size);
 		all_positions = (struct world*) malloc(num_lines * max_size * sizeof(struct world));
 
-		for(j = 0; j < num_lines; j++) {
+		for(j = 0; j < num_lines + ghost_lines; j++) {
 			worlds[i][j] = all_positions + (j * max_size);
 		}
 	}
@@ -585,7 +586,6 @@ void scatter_matrix() {
 	int i, size, row_size, proc_num_lines, begin_index = 0;
 	int ghosts_start, ghosts_end, total_ghosts;	
 
-	MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	num_lines = get_num_lines(max_size, nprocs, id);
 
 	ghost_lines_start = ghost_lines_at_start(id);
@@ -602,6 +602,7 @@ void scatter_matrix() {
 		}
 	} else {
 		total_ghosts = ghost_lines_start + ghost_lines_end;
+		printf("Process %d Ghost lines %d Computation lines %d\n", id, total_ghosts, num_lines);
 		init_worlds(total_ghosts);
 		MPI_Recv(worlds[0][0], (num_lines + total_ghosts) * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		memcpy(worlds[1], worlds[0], num_lines * max_size);
@@ -704,10 +705,21 @@ int main(int argc, char **argv) {
 		if(!id)
 			populate_world_from_file(argv[1]);
 		
-		create_mpi_datatype();
-		scatter_matrix();
-	    process_generations();
-		/*
+		MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		
+		/* More processes than lines */
+		if(nprocs > max_size) {
+			/* Limit the number of processes */
+			nprocs = max_size;
+		}
+		
+		if(id < nprocs) {
+			create_mpi_datatype();
+			scatter_matrix();
+			process_generations();
+		}
+
+				/*
 		gather_matrix();
 		*/
 	   

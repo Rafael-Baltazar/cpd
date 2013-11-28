@@ -69,7 +69,7 @@ run-parallel: parallel
 	time ./$(PARALLEL_EXE) tests/world_100.in 2 2 800 1000000
 
 run-mpi: mpi
-	$(MPI_RUN) -np 2 $(MPI_EXE) data 10 10 10 10
+	$(MPI_RUN) -np 4 $(MPI_EXE) data 10 10 10 10
 
 test: serial parallel
 	./test.sh
