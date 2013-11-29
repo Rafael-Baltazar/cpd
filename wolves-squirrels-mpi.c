@@ -32,11 +32,12 @@
 int max_size;
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 int id, nprocs, num_lines;
-int ghost_lines_start, ghost_lines_end;
+int ghost_lines_start, ghost_lines_end, start_cell;
+int start_computation_line = 0;
 MPI_Datatype mpi_world_type;
 
 #define TAG 101
-#define NITEMS 5
+#define NITEMS 6
 #define N_ADJACENTS	4
 
 #define GHOST_LINES 1
@@ -53,8 +54,8 @@ struct world {
  	int starvation_period;
 	int ate_squirrel;
 	int breed;
+	int cell_number;
 } **worlds[N_COLORS]; 
-
 
 inline void swap_matrix(){
   struct world** aux;
@@ -72,10 +73,7 @@ inline void copy_matrix(struct world **src, struct world **dst) {
  *	matrix position (row, col)
  */ 
 inline int cell_number(int row, int col) {
-	if(id) {
-		row += get_num_lines(max_size, nprocs, id - 1)*id - 1;
-	}
-	return row * max_size + col;
+	return (row * max_size + col) + start_cell;
 }
 
 /*
@@ -147,10 +145,12 @@ int get_adjacents(int row, int col, int *adjacents) {
 inline void get_world_coordinates(int cell_number, int *row, int *col) {
 	*col = cell_number % max_size;
 	*row = (cell_number - *col) / max_size;
+}
+
+inline void get_process_world_coordinates(int cell_number, int *row, int *col) {	
 	/* Adjust the line to the process matrix */
-	if(id) {
-		*row -= get_num_lines(max_size, nprocs, id - 1)*id - 1;
-	}
+	get_world_coordinates(cell_number, row, col);
+	*row = *row % num_lines;
 }
 
 /* 
@@ -272,9 +272,7 @@ int get_cells_with_squirrels(struct world **world, int *possibilities, int n_pos
 	for (i = 0; i < n_possibilities; ++i)
 	{
 		get_world_coordinates(possibilities[i], &row, &col);
-		printf("id %d row %d col %d\n", id, row, col);
 		cell = world[row][col];
-		printf("id %d cell with squirrel\n", id);
 		if(cell.type == SQUIRREL) {
 			squirrels[found] = cell_number(row, col);
 			found++;
@@ -522,8 +520,8 @@ int get_num_lines(int size, int nprocs, int id) {
  * Creates MPI_Datatype and commits it
  */
 void create_mpi_datatype() {
-	int blocklengths[NITEMS] = {1, 1, 1, 1, 1};
-	MPI_Datatype types[NITEMS] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+	int blocklengths[NITEMS] = {1, 1, 1, 1, 1, 1};
+	MPI_Datatype types[NITEMS] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
 	MPI_Aint offsets[NITEMS];
 
 	offsets[0] = offsetof(struct world, type);
@@ -531,6 +529,7 @@ void create_mpi_datatype() {
  	offsets[2] = offsetof(struct world, starvation_period);
 	offsets[3] = offsetof(struct world, ate_squirrel);
 	offsets[4] = offsetof(struct world, breed);
+	offsets[5] = offsetof(struct world, cell_number);
 
 	MPI_Type_create_struct(NITEMS, blocklengths, offsets, types, &mpi_world_type);
 	MPI_Type_commit(&mpi_world_type);
@@ -542,12 +541,12 @@ void create_mpi_datatype() {
 void init_worlds(int ghost_lines) {
 	int  i, j, row_size;
 	struct world *all_positions;
-
-	row_size = (num_lines + ghost_lines) * sizeof(struct world*);
+	int total_lines = num_lines + ghost_lines;
+	row_size = total_lines * sizeof(struct world*);
 
 	for(i = 0; i < N_COLORS; i++) {
 		worlds[i] = (struct world**) malloc(row_size);
-		all_positions = (struct world*) malloc(num_lines * max_size * sizeof(struct world));
+		all_positions = (struct world*) malloc(total_lines * max_size * sizeof(struct world));
 
 		for(j = 0; j < num_lines + ghost_lines; j++) {
 			worlds[i][j] = all_positions + (j * max_size);
@@ -584,7 +583,8 @@ int ghost_lines_at_end(int process_id) {
  */
 void scatter_matrix() {
 	int i, size, row_size, proc_num_lines, begin_index = 0;
-	int ghosts_start, ghosts_end, total_ghosts;	
+	int ghosts_start, ghosts_end, total_ghosts, col;
+	int total_lines;	
 
 	num_lines = get_num_lines(max_size, nprocs, id);
 
@@ -593,19 +593,24 @@ void scatter_matrix() {
 
 	if(!id) {
 		/* Send some lines of the matrix to the other processors*/
-		for(i = 1; i < nprocs; i++) {
-			begin_index += num_lines;
+		for(i = 1, begin_index = num_lines; i < nprocs; i++, begin_index += proc_num_lines) {
+			proc_num_lines = get_num_lines(max_size, nprocs, i);
 			ghosts_start = ghost_lines_at_start(i);
 			ghosts_end = ghost_lines_at_end(i);
-			proc_num_lines = get_num_lines(max_size, nprocs, i);
-			MPI_Send(worlds[0][begin_index - ghosts_start], (proc_num_lines + ghosts_end) * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
+			total_ghosts = ghosts_start + ghosts_end;
+			total_lines = proc_num_lines + total_ghosts;
+			printf("Sending to %d line %d total lines %d total ghosts %d\n", i, begin_index, total_lines, total_ghosts);
+			MPI_Send(worlds[0][begin_index - ghosts_start], total_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
 		}
 	} else {
 		total_ghosts = ghost_lines_start + ghost_lines_end;
-		printf("Process %d Ghost lines %d Computation lines %d\n", id, total_ghosts, num_lines);
+		total_lines = num_lines + total_ghosts;
 		init_worlds(total_ghosts);
-		MPI_Recv(worlds[0][0], (num_lines + total_ghosts) * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		memcpy(worlds[1], worlds[0], num_lines * max_size);
+		printf("Process %d Receiving %d lines\n", id, total_lines);
+		MPI_Recv(worlds[0][0], total_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		start_cell = worlds[0][0][0].cell_number;
+		get_world_coordinates(start_cell, &start_computation_line, &col);
+		printf("Process %d received lines %d - %d\n", id, start_computation_line, start_computation_line + total_lines - 1);		
 	}
 }
 
@@ -634,6 +639,9 @@ void populate_world_from_file(char file_name[]) {
 				worlds[i][j] = all_positions + (j * max_size);
 				/* Put zeros in each line of each world */
 				memset((void*) worlds[i][j], 0, size);
+				/* Later each process will know the index of start processing line
+				   in the original matrix */
+				worlds[i][j][0].cell_number = cell_number(j, 0);
 			}
 		}
 
@@ -716,19 +724,23 @@ int main(int argc, char **argv) {
 		if(id < nprocs) {
 			create_mpi_datatype();
 			scatter_matrix();
-			process_generations();
+		//	process_generations();
 		}
 
 				/*
 		gather_matrix();
 		*/
 	   
-		if(!id)
-			print_all_cells();
+		if(!id) {
+		//	print_all_cells();
+
+		}
+		
 
 		MPI_Barrier(MPI_COMM_WORLD);
+		printf("Já acabei %d \n", id);
 		MPI_Finalize();
-		}
+	}
 	else {
 		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
 		printf("<squirrel_breeding_period> <wolf_startvation_period> <# of generations>\n");

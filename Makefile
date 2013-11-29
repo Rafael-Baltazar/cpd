@@ -17,7 +17,7 @@ MPICC=mpicc
 MPI_RUN=mpirun
 FLAGS=-Wall -pedantic -g
 P_FLAGS=-fopenmp
-MPI_FLAGS=
+MPI_FLAGS=-g
 DEBUGGER=ddd
 TMP_OUT=tmp.out
 
