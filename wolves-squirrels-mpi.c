@@ -138,21 +138,22 @@ int get_adjacents(int row, int col, int *adjacents) {
 	return found;
 }
 
+
+
+inline void get_global_world_coordinates(int cell_number, int *row, int *col) {	
+	/* Adjust the line to the process matrix */
+	*col = cell_number % max_size;
+	*row = (cell_number - *col) / max_size;
+}
+
 /*
  * get_world_coordinates: Return in row and col the right
  *	coordinates of the matric of a given cell number
  */
 inline void get_world_coordinates(int cell_number, int *row, int *col) {
-	*col = cell_number % max_size;
-	*row = (cell_number - *col) / max_size;
+	get_global_world_coordinates(cell_number, row, col);
+	*row = *row - start_computation_line;
 }
-
-inline void get_process_world_coordinates(int cell_number, int *row, int *col) {	
-	/* Adjust the line to the process matrix */
-	get_world_coordinates(cell_number, row, col);
-	*row = *row % num_lines;
-}
-
 /* 
  * move_to: Move an animal in position (src_row, src_col)
  * 	to cell number dest_ci. The animal breeds if it's breeding
@@ -609,7 +610,7 @@ void scatter_matrix() {
 		printf("Process %d Receiving %d lines\n", id, total_lines);
 		MPI_Recv(worlds[0][0], total_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		start_cell = worlds[0][0][0].cell_number;
-		get_world_coordinates(start_cell, &start_computation_line, &col);
+		get_global_world_coordinates(start_cell, &start_computation_line, &col);
 		printf("Process %d received lines %d - %d\n", id, start_computation_line, start_computation_line + total_lines - 1);		
 	}
 }
@@ -724,7 +725,7 @@ int main(int argc, char **argv) {
 		if(id < nprocs) {
 			create_mpi_datatype();
 			scatter_matrix();
-		//	process_generations();
+			process_generations();
 		}
 
 				/*
@@ -732,8 +733,7 @@ int main(int argc, char **argv) {
 		*/
 	   
 		if(!id) {
-		//	print_all_cells();
-
+			print_all_cells();
 		}
 		
 
