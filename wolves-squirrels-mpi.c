@@ -56,7 +56,7 @@ struct world {
 } **worlds[N_COLORS]; 
 
 
-void swap_matrix(){
+inline void swap_matrix(){
   struct world** aux;
   aux = worlds[1];
   worlds[1] = worlds[0];
