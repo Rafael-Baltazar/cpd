@@ -33,7 +33,7 @@ int max_size;
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 int id, nprocs, num_lines;
 int ghost_lines_start, ghost_lines_end, start_cell;
-int start_computation_line = 0;
+int start_computation_line = 0, total_lines;
 MPI_Datatype mpi_world_type;
 
 #define TAG 101
@@ -121,12 +121,12 @@ int get_adjacents(int row, int col, int *adjacents) {
 	}
 
 	/*Has right adjacent cell?*/
-	if(col < max_size - 1) {
+	if(col < total_lines - 1) {
 		adjacents[found++] = cell_number(row, col + 1);
 	}
 
 	/*Has down adjacent cell?*/
-	if(row < max_size - 1) {
+	if(row < total_lines - 1) {
 		adjacents[found++] = cell_number(row + 1, col);
 	}
 
@@ -466,11 +466,19 @@ void print_cell(int l, int c) {
 	}
 }
 
+void print_process_cells() {
+	int i, j;
+
+	for(i = 0; i < num_lines; i++) {
+		for(j = 0; j < max_size; j++) {
+			print_cell(i, j);
+		}
+	}
+}
+
 /*prints the world*/
 void print_all_cells(){
 	int i, j;
-	char type;
-	struct world cell;
 
 	for(i = 0; i < max_size; i++) {
 		for(j = 0; j < max_size; j++) {
@@ -585,7 +593,7 @@ int ghost_lines_at_end(int process_id) {
 void scatter_matrix() {
 	int i, size, row_size, proc_num_lines, begin_index = 0;
 	int ghosts_start, ghosts_end, total_ghosts, col;
-	int total_lines;	
+	int process_total_lines;	
 
 	num_lines = get_num_lines(max_size, nprocs, id);
 
@@ -593,15 +601,17 @@ void scatter_matrix() {
 	ghost_lines_end = ghost_lines_at_end(id);
 
 	if(!id) {
+		total_ghosts = ghost_lines_start + ghost_lines_end;
+		total_lines = num_lines + total_ghosts;
 		/* Send some lines of the matrix to the other processors*/
 		for(i = 1, begin_index = num_lines; i < nprocs; i++, begin_index += proc_num_lines) {
 			proc_num_lines = get_num_lines(max_size, nprocs, i);
 			ghosts_start = ghost_lines_at_start(i);
 			ghosts_end = ghost_lines_at_end(i);
 			total_ghosts = ghosts_start + ghosts_end;
-			total_lines = proc_num_lines + total_ghosts;
+			process_total_lines = proc_num_lines + total_ghosts;
 			printf("Sending to %d line %d total lines %d total ghosts %d\n", i, begin_index, total_lines, total_ghosts);
-			MPI_Send(worlds[0][begin_index - ghosts_start], total_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
+			MPI_Send(worlds[0][begin_index - ghosts_start], process_total_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
 		}
 	} else {
 		total_ghosts = ghost_lines_start + ghost_lines_end;
@@ -610,8 +620,9 @@ void scatter_matrix() {
 		printf("Process %d Receiving %d lines\n", id, total_lines);
 		MPI_Recv(worlds[0][0], total_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		start_cell = worlds[0][0][0].cell_number;
+		copy_matrix(worlds[0], worlds[1]);
 		get_global_world_coordinates(start_cell, &start_computation_line, &col);
-		printf("Process %d received lines %d - %d\n", id, start_computation_line, start_computation_line + total_lines - 1);		
+		printf("Process %d received lines %d - %d\n", id, start_computation_line, start_computation_line + total_lines - 1);
 	}
 }
 
@@ -683,21 +694,6 @@ void process_generations() {
 		update_periods(worlds[0], worlds[1]);
 	}
 }
-
-/*
-   * Just for debugging
-   */
-void print_process_lines() {
-	int i, j;
-
-	for(i = 0; i < num_lines + ghost_lines_start + ghost_lines_end; i++) {
-		for(j = 0; j < max_size; j++) {
-			printf("process: %d", id);
-			print_cell(i, j);
-		}
-	}
-}
-
 
 int main(int argc, char **argv) {
 	if(argc >= N_ARGS) {
