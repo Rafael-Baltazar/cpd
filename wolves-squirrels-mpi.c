@@ -154,6 +154,57 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
 	get_global_world_coordinates(cell_number, row, col);
 	*row = *row - start_computation_line;
 }
+
+/*
+ * The strong kill the weak. Wolf > Squirrel > Empty
+ * Higher starvation period > Lower starvation period 
+ * and if equal higher breeding period > lower breeding period.
+ * Also wolves cannot climb trees and no breed_flag is being checked.
+ * Only writes in dst and is only being used in solve_ghost_conflicts.
+ */
+void solve_conflict(struct world *src, struct world *dst) {
+	struct world temp = *dst;
+	if(dst->type == EMPTY) {
+		*dst = *src;
+		return;
+	}
+	/* Eats squirrel or competes with another wolf */
+	if(src->type & WOLF) {
+		if(dst->type == SQUIRREL) {
+			*dst = *src;
+			dst->ate_squirrel = 1;
+		}
+		else if(dst->type & WOLF) {
+			if(src->starvation_period > dst->starvation_period)
+				*dst = *src;
+			else if(src->starvation_period == dst->starvation_period) {
+				if(src->breeding_period > dst->breeding_period) {
+					*dst = *src;
+				}
+			}
+		}
+	}
+	/* Is eaten by a wolf or competes with another squirrel */
+	else if(src->type & SQUIRREL) {
+		if(dst->type & WOLF)
+			dst->ate_squirrel = 1;
+		else if(dst->type & SQUIRREL) {
+			if(src->breeding_period > dst->breeding_period) {
+				*dst = *src;
+			}
+		}
+	}
+
+	/* Fixes possible errors */
+	if(temp.type & TREE)
+		dst->type |= TREE;
+	else if(dst->type == SQUIRRELnTREE)
+		dst->type = SQUIRREL;	
+	if(temp.ate_squirrel > 0)
+		dst->ate_squirrel = 1;
+	dst->cell_number = temp.cell_number;
+}
+
 /* 
  * move_to: Move an animal in position (src_row, src_col)
  * 	to cell number dest_ci. The animal breeds if it's breeding
@@ -374,7 +425,7 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
     int i, j;
     struct world /*read_cell,*/ *write_cell;
 
-    for(i = 0; i < num_lines; i++) {
+    for(i = 0; i < total_lines; i++) {
         for(j = 0; j < max_size; j++) {
 			/*read_cell = &read_matrix[i][j];*/
 			write_cell = &write_matrix[i][j];
@@ -454,6 +505,19 @@ struct world* receive_ghost_lines(int num, int other_id) {
 }
 
 /*
+ * Solve conflicts by moving the buffer to the write matrix
+ */
+void solve_ghost_conflict(int num, int index, struct world *buffer) {
+	int i, j;
+
+	for(i = 0; i < num; i++) {
+		for(j = 0; j < max_size; j++) {
+			solve_conflict(&buffer[i * max_size + j], &worlds[1][index + i][j]);
+		}
+	}
+}
+
+/*
  * Updates only the wolf and squirrels that belong to a specific subgeneration.
  * color: the color of the subgeneration to be updated.
  */
@@ -477,6 +541,7 @@ void iterate_subgeneration(int color) {
 		
 		for(j = start_col; j < max_size; j += N_COLORS) {
             if(read_matrix[i][j].type & WOLF) {
+			printf("UpdatingWolf %d line %d col %d\n", id, i, j);
 				update_wolf(read_matrix, write_matrix, i,j);
             }
 			else if(read_matrix[i][j].type & SQUIRREL) {
@@ -486,15 +551,21 @@ void iterate_subgeneration(int color) {
 		
 	}
 	
-	/* Trade ghost lines and solve conflicts */
+	/* Trade ghost lines */
 	send_ghost_lines();
 	buffer_start = receive_ghost_lines(ghost_lines_at_start(id), id - 1);
 	buffer_end = receive_ghost_lines(ghost_lines_at_end(id), id + 1);
-	
-	/* Not Yet
-	solve_ghost_conflict(buffer_start);
-	solve_ghost_conflict(buffer_end);
-	*/
+
+	printf("%d Start %d End %d\n", id, buffer_start->type, buffer_end->type);//DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	/* And solve conflicts */	
+	solve_ghost_conflict(ghost_lines_at_start(id), ghost_lines_at_start(id), buffer_start);
+	solve_ghost_conflict(ghost_lines_at_end(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_end(id), buffer_end);
+
+	if(buffer_start->type == WOLF)//DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		printf("Wolf start %d\n", worlds[1][0]->type);
+	if(buffer_end->type == WOLF)
+		printf("Wolf end %d\n", worlds[1][ghost_lines_at_start(id) + num_lines - ghost_lines_at_end(id)]->type);
 }
 
 void print_cell(int l, int c) {
