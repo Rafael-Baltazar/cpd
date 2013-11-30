@@ -421,7 +421,7 @@ void iterate_subgeneration(int color) {
 
 	/* Don't process the ghost lines */
 	for(i = ghost_lines_start; i < num_lines + ghost_lines_start; i++) {
-        if(get_cell_color(i, 0) == color) {
+        if(get_cell_color(i + start_computation_line, 0) == color) {
             start_col = 0;
         }
         else {
@@ -610,19 +610,16 @@ void scatter_matrix() {
 			ghosts_end = ghost_lines_at_end(i);
 			total_ghosts = ghosts_start + ghosts_end;
 			process_total_lines = proc_num_lines + total_ghosts;
-			printf("Sending to %d line %d total lines %d total ghosts %d\n", i, begin_index, total_lines, total_ghosts);
 			MPI_Send(worlds[0][begin_index - ghosts_start], process_total_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
 		}
 	} else {
 		total_ghosts = ghost_lines_start + ghost_lines_end;
 		total_lines = num_lines + total_ghosts;
 		init_worlds(total_ghosts);
-		printf("Process %d Receiving %d lines\n", id, total_lines);
 		MPI_Recv(worlds[0][0], total_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		start_cell = worlds[0][0][0].cell_number;
 		copy_matrix(worlds[0], worlds[1]);
 		get_global_world_coordinates(start_cell, &start_computation_line, &col);
-		printf("Process %d received lines %d - %d\n", id, start_computation_line, start_computation_line + total_lines - 1);
 	}
 }
 
@@ -680,6 +677,23 @@ void populate_world_from_file(char file_name[]) {
 	}
 }
 
+void gather_matrix() {
+        int i, begin_index = num_lines;
+
+        /*Receive all matrixes*/
+        if(!id) {
+                for(i = 1; i < nprocs; i++) {
+                        MPI_Recv(worlds[1][begin_index], get_num_lines(max_size, nprocs, i) * max_size,
+                                 mpi_world_type, i, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        begin_index += get_num_lines(max_size, nprocs, i);
+                }
+        }
+        /*Send local matrix to master process*/
+        else {
+                MPI_Send(worlds[1][ghost_lines_at_start(id)], num_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD);
+        }
+}
+
 /*  
  * process_generations: Process all the generations
  */
@@ -722,12 +736,9 @@ int main(int argc, char **argv) {
 			create_mpi_datatype();
 			scatter_matrix();
 			process_generations();
+			gather_matrix();
 		}
 
-				/*
-		gather_matrix();
-		*/
-	   
 		if(!id) {
 			print_all_cells();
 		}
