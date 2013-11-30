@@ -411,13 +411,60 @@ void update_periods(struct world **read_matrix, struct world **write_matrix) {
 }
 
 /*
+ * Sets ghost lines in write matrix at zero. To ease the conflict solve at the
+ * end of each subgeneration. 
+ */
+void blank_write_ghost_lines() {
+	int i, ghost_lines;
+
+	ghost_lines = ghost_lines_at_start(id);
+	for(i = 0; i < ghost_lines; i++) {
+		memset(worlds[1][i], 0, max_size);
+	}
+
+	ghost_lines = ghost_lines_at_end(id);
+	for(i = 0; i < ghost_lines; i++) {
+		memset(worlds[1][ghost_lines_at_start(id) + num_lines + i], 0, max_size);
+	}
+}
+
+/*
+ * Sends corresponding ghost lines to the previous and next processes.
+ */
+void send_ghost_lines() {
+	int ghost_lines = ghost_lines_at_start(id);
+
+	if(ghost_lines > 0)
+		MPI_Send(worlds[1][0], ghost_lines * max_size, mpi_world_type, id - 1, TAG, MPI_COMM_WORLD);
+
+	ghost_lines = ghost_lines_at_end(id);
+	if(ghost_lines > 0)
+		MPI_Send(worlds[1][ghost_lines_at_start(id) + num_lines], ghost_lines* max_size, mpi_world_type, id + 1, TAG, MPI_COMM_WORLD);
+}
+
+/*
+ * Receives num ghost lines from process other_id.
+ */
+struct world* receive_ghost_lines(int num, int other_id) {
+	struct world *buffer = (struct world*) malloc(num * max_size * sizeof(struct world));
+
+	if(num > 0)
+		MPI_Recv(buffer, num * max_size, mpi_world_type, other_id, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	return buffer;	
+}
+
+/*
  * Updates only the wolf and squirrels that belong to a specific subgeneration.
  * color: the color of the subgeneration to be updated.
  */
 void iterate_subgeneration(int color) {
 	int i, j, start_col;
-    struct world **read_matrix = worlds[0];
-    struct world **write_matrix = worlds[1];
+	struct world **read_matrix = worlds[0];
+	struct world **write_matrix = worlds[1];
+	struct world *buffer_start, *buffer_end;
+	
+	/* To ease the conflict solving */
+ 	blank_write_ghost_lines();
 
 	/* Don't process the ghost lines */
 	for(i = ghost_lines_start; i < num_lines + ghost_lines_start; i++) {
@@ -427,7 +474,7 @@ void iterate_subgeneration(int color) {
         else {
             start_col = 1;
         }
-    
+		
 		for(j = start_col; j < max_size; j += N_COLORS) {
             if(read_matrix[i][j].type & WOLF) {
 				update_wolf(read_matrix, write_matrix, i,j);
@@ -436,7 +483,18 @@ void iterate_subgeneration(int color) {
                 update_squirrel(read_matrix, write_matrix, i,j);
 			}
 		}
+		
 	}
+	
+	/* Trade ghost lines and solve conflicts */
+	send_ghost_lines();
+	buffer_start = receive_ghost_lines(ghost_lines_at_start(id), id - 1);
+	buffer_end = receive_ghost_lines(ghost_lines_at_end(id), id + 1);
+	
+	/* Not Yet
+	solve_ghost_conflict(buffer_start);
+	solve_ghost_conflict(buffer_end);
+	*/
 }
 
 void print_cell(int l, int c) {
