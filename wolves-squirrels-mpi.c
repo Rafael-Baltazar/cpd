@@ -535,7 +535,15 @@ void solve_ghost_conflict(int nlines, int index, struct world *buffer) {
 
 	for(i = 0; i < nlines; i++) {
 		for(j = 0; j < max_size; j++) {
-			solve_conflict(&buffer[i * max_size + j], &worlds[1][index + i][j]);
+			if(worlds[0][index + i][j].type == buffer[i * max_size + j].type) {//TESTING
+				continue;
+			}
+			else if(worlds[0][index + i][j].type == worlds[1][index + i][j].type) {
+				worlds[1][index + i][j] = buffer[i * max_size + j];
+			}
+			else {
+				solve_conflict(&buffer[i * max_size + j], &worlds[1][index + i][j]);
+			}
 		}
 	}
 }
@@ -577,12 +585,12 @@ void iterate_subgeneration(int color) {
 	}
 	
 	/* Trade ghost lines */
-	/*send_ghost_lines();
-	receive_ghost_lines();*/
+	send_ghost_lines();
+	receive_ghost_lines();
 
 	/* And solve conflicts */	
-	//solve_ghost_conflict(buffer_start_size(id), 0, buffer_start);
-	//solve_ghost_conflict(buffer_end_size(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_start(id + 1), buffer_end);
+	solve_ghost_conflict(buffer_start_size(id), 0, buffer_start);
+	solve_ghost_conflict(buffer_end_size(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_start(id + 1), buffer_end);
 }
 
 void print_cell(int l, int c) {
