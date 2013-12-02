@@ -35,6 +35,8 @@ int id, nprocs, num_lines;
 int ghost_lines_start, ghost_lines_end, start_cell;
 int start_computation_line = 0, total_lines;
 MPI_Datatype mpi_world_type;
+struct world *buffer_start, *buffer_end;
+
 
 #define TAG 101
 #define NITEMS 6
@@ -84,6 +86,19 @@ inline int choose_position(int row, int col, int p) {
 	int c = cell_number(row, col);
 	return  c % p;
  }
+
+void init_ghost_buffers() {	
+	buffer_start = (struct world*) malloc(buffer_start_size() * max_size * sizeof(struct world));	
+	buffer_end = (struct world*) malloc(buffer_end_size() * max_size * sizeof(struct world));
+}
+
+inline int buffer_start_size() {
+	return ghost_lines_at_start(id) + ghost_lines_at_end(id - 1);
+}
+
+inline int buffer_end_size() {
+	return ghost_lines_at_end(id) + ghost_lines_at_start(id + 1);
+}
 
 int get_cell_color(int row, int col) {
     /* Odd line: Start with a black cell */
@@ -483,34 +498,38 @@ void blank_write_ghost_lines() {
  * Sends corresponding ghost lines to the previous and next processes.
  */
 void send_ghost_lines() {
-	int ghost_lines = ghost_lines_at_start(id);
+	int ghost_lines = ghost_lines_at_start(id) + ghost_lines_at_end(id - 1);
 
-	if(ghost_lines > 0)
-		MPI_Send(worlds[1][0], ghost_lines * max_size, mpi_world_type, id - 1, TAG, MPI_COMM_WORLD);
+	if(id > 0) {
+	 	MPI_Send(worlds[1][0], ghost_lines * max_size, mpi_world_type, id - 1, TAG, MPI_COMM_WORLD);
+	}
 
-	ghost_lines = ghost_lines_at_end(id);
-	if(ghost_lines > 0)
-		MPI_Send(worlds[1][ghost_lines_at_start(id) + num_lines], ghost_lines* max_size, mpi_world_type, id + 1, TAG, MPI_COMM_WORLD);
+	ghost_lines = ghost_lines_at_end(id) + ghost_lines_at_start(id + 1);
+	if(id < (nprocs - 1)) {
+		MPI_Send(worlds[1][ghost_lines_at_start(id) + num_lines - ghost_lines_at_start(id + 1)], ghost_lines * max_size, mpi_world_type, id + 1, TAG, MPI_COMM_WORLD);
+	}
 }
 
 /*
  * Receives num ghost lines from process other_id.
  */
-struct world* receive_ghost_lines(int num, int other_id) {
-	struct world *buffer = (struct world*) malloc(num * max_size * sizeof(struct world));
+inline void receive_ghost_lines() {
+	if(id > 0) {
+		MPI_Recv(buffer_start, buffer_start_size() * max_size, mpi_world_type, id - 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	}
 
-	if(num > 0)
-		MPI_Recv(buffer, num * max_size, mpi_world_type, other_id, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	return buffer;	
+	if(id < (nprocs - 1)) {
+		MPI_Recv(buffer_end, buffer_end_size() * max_size, mpi_world_type, id + 1, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	}
 }
 
 /*
  * Solve conflicts by moving the buffer to the write matrix
  */
-void solve_ghost_conflict(int num, int index, struct world *buffer) {
+void solve_ghost_conflict(int nlines, int index, struct world *buffer) {
 	int i, j;
 
-	for(i = 0; i < num; i++) {
+	for(i = 0; i < nlines; i++) {
 		for(j = 0; j < max_size; j++) {
 			solve_conflict(&buffer[i * max_size + j], &worlds[1][index + i][j]);
 		}
@@ -525,7 +544,7 @@ void iterate_subgeneration(int color) {
 	int i, j, start_col;
 	struct world **read_matrix = worlds[0];
 	struct world **write_matrix = worlds[1];
-	struct world *buffer_start, *buffer_end;
+	
 	
 	/* To ease the conflict solving */
  	blank_write_ghost_lines();
@@ -541,7 +560,8 @@ void iterate_subgeneration(int color) {
 		
 		for(j = start_col; j < max_size; j += N_COLORS) {
             if(read_matrix[i][j].type & WOLF) {
-			printf("UpdatingWolf %d line %d col %d\n", id, i, j);
+	
+					printf("UpdatingWolf %d line %d col %d\n", id, i, j);
 				update_wolf(read_matrix, write_matrix, i,j);
             }
 			else if(read_matrix[i][j].type & SQUIRREL) {
@@ -553,14 +573,13 @@ void iterate_subgeneration(int color) {
 	
 	/* Trade ghost lines */
 	send_ghost_lines();
-	buffer_start = receive_ghost_lines(ghost_lines_at_start(id), id - 1);
-	buffer_end = receive_ghost_lines(ghost_lines_at_end(id), id + 1);
+	receive_ghost_lines();
 
 	printf("%d Start %d End %d\n", id, buffer_start->type, buffer_end->type);//DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 	/* And solve conflicts */	
-	solve_ghost_conflict(ghost_lines_at_start(id), ghost_lines_at_start(id), buffer_start);
-	solve_ghost_conflict(ghost_lines_at_end(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_end(id), buffer_end);
+	solve_ghost_conflict(buffer_start_size(), 0, buffer_start);
+	solve_ghost_conflict(buffer_end_size(), ghost_lines_at_start(id) + num_lines - ghost_lines_at_end(id + 1), buffer_end);
 
 	if(buffer_start->type == WOLF)//DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		printf("Wolf start %d\n", worlds[1][0]->type);
