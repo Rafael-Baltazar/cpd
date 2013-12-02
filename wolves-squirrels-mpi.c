@@ -37,6 +37,8 @@ int start_computation_line = 0, total_lines;
 MPI_Datatype mpi_world_type;
 struct world *buffer_start, *buffer_end;
 
+int move_tos = 0;
+
 
 #define TAG 101
 #define NITEMS 6
@@ -90,6 +92,8 @@ inline int choose_position(int row, int col, int p) {
 void init_ghost_buffers() {	
 	buffer_start = (struct world*) malloc(buffer_start_size(id) * max_size * sizeof(struct world));	
 	buffer_end = (struct world*) malloc(buffer_end_size(id) * max_size * sizeof(struct world));
+	memset(buffer_start, 0, sizeof(buffer_start_size(id) * max_size * sizeof(struct world)));
+	memset(buffer_end, 0, sizeof(buffer_start_size(id) * max_size * sizeof(struct world)));
 }
 
 inline int buffer_start_size(int nid) {
@@ -179,11 +183,14 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
  */
 void solve_conflict(struct world *src, struct world *dst) {
 	struct world temp = *dst;
-	if(!dst->type) {
+	if(dst->type == EMPTY && src->type != EMPTY) {
 		*dst = *src;
 		return;
 	}
+	
+	
 	/* Eats squirrel or competes with another wolf */
+	/* WOLF is moving*/
 	if(src->type & WOLF) {
 		if(dst->type == SQUIRREL) {
 			*dst = *src;
@@ -199,7 +206,10 @@ void solve_conflict(struct world *src, struct world *dst) {
 			}
 		}
 	}
+	
+	
 	/* Is eaten by a wolf or competes with another squirrel */
+	/* SQUIRREL is moving*/
 	else if(src->type & SQUIRREL) {
 		if(dst->type & WOLF)
 			dst->ate_squirrel = 1;
@@ -209,14 +219,14 @@ void solve_conflict(struct world *src, struct world *dst) {
 			}
 		}
 	}
-
-	/* Fixes possible errors */
+	
+	/* Fixes possible errors 
 	if(temp.type & TREE)
 		dst->type |= TREE;
 	else if(dst->type == SQUIRRELnTREE)
 		dst->type = SQUIRREL;	
 	if(temp.ate_squirrel > 0)
-		dst->ate_squirrel = 1;
+		dst->ate_squirrel = 1;*/
 	dst->cell_number = temp.cell_number;
 }
 
@@ -387,11 +397,11 @@ void update_squirrel(struct world **read_matrix, struct world **write_matrix, in
 	
 	n_possibilities = get_adjacents(row, col, possibilities);
 	n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
-	printf("Poss %d\n", n_moves);
+	//printf("Poss %d\n", n_moves);
 	if(n_moves) {
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen], read_matrix, write_matrix);
-		printf("Ficou %d, breeding %d\n", worlds[1][1][0].type, worlds[1][1][0].breeding_period);
+		//printf("Ficou %d, breeding %d\n", worlds[1][1][0].type, worlds[1][1][0].breeding_period);
 	}
  }
 
@@ -542,7 +552,7 @@ void solve_ghost_conflict(int nlines, int index, struct world *buffer) {
 				worlds[1][index + i][j] = buffer[i * max_size + j];
 			}
 			else {
-				solve_conflict(&buffer[i * max_size + j], &worlds[1][index + i][j]);
+				 (&buffer[i * max_size + j], &worlds[1][index + i][j]);
 			}
 		}
 	}
@@ -553,6 +563,7 @@ void solve_ghost_conflict(int nlines, int index, struct world *buffer) {
  * color: the color of the subgeneration to be updated.
  */
 void iterate_subgeneration(int color) {
+	move_tos++;
 	int i, j, start_col;
 	struct world **read_matrix = worlds[0];
 	struct world **write_matrix = worlds[1];
@@ -572,13 +583,13 @@ void iterate_subgeneration(int color) {
 		
 		for(j = start_col; j < max_size; j += N_COLORS) {
             if(read_matrix[i][j].type & WOLF) {	
-				printf("UpdatingWolf %d line %d col %d\n", id, i, j);
+				//printf("UpdatingWolf %d line %d col %d\n", id, i, j);
 				update_wolf(read_matrix, write_matrix, i,j);
             }
 			else if(read_matrix[i][j].type & SQUIRREL) {
-				printf("UpdatingSquirrel %d line %d col %d\n", id, i, j);
+				//printf("UpdatingSquirrel %d line %d col %d\n", id, i, j);
                 update_squirrel(read_matrix, write_matrix, i,j);
-				printf("Ficou %d, breeding %d\n", worlds[1][1][0].type, worlds[1][1][0].breeding_period);
+				//printf("Ficou %d, breeding %d\n", worlds[1][1][0].type, worlds[1][1][0].breeding_period);
 			}
 		}
 		
@@ -587,7 +598,7 @@ void iterate_subgeneration(int color) {
 	/* Trade ghost lines */
 	send_ghost_lines();
 	receive_ghost_lines();
-
+	
 	/* And solve conflicts */	
 	solve_ghost_conflict(buffer_start_size(id), 0, buffer_start);
 	solve_ghost_conflict(buffer_end_size(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_start(id + 1), buffer_end);
@@ -723,7 +734,7 @@ void init_worlds(int ghost_lines) {
  */
 int ghost_lines_at_start(int process_id) {
 	/* Only the first process will not have ghost lines at the start */
-	if(process_id) {
+	if(process_id>0 && process_id<nprocs) {
 		return GHOST_LINES;
 	}
 	else {
@@ -733,7 +744,7 @@ int ghost_lines_at_start(int process_id) {
 
 int ghost_lines_at_end(int process_id) {
 	/* Only the last process will not have ghost lines at the end */
-	if(process_id != (nprocs - 1)) {
+	if(process_id<(nprocs - 1) && (process_id>-1)) {
 		return GHOST_LINES;
 	}
 	else {
@@ -781,19 +792,15 @@ void populate_world_from_file(char file_name[]) {
 	FILE *fp;
 	int i, j, size, row_size;
 	char a;
-
 	struct world *all_positions;
-
    /* struct world ***right_world; */
 	fp = fopen(file_name,"r");
-
 	if(fp == NULL) {
 		printf("Error while opening the file.\n");
 	} else {
 		fscanf(fp, "%d", &max_size);
         row_size = max_size*sizeof(struct world*);
 		size = max_size*sizeof(struct world);
-		
 		for(i = 0; i < N_COLORS; i++) {
 			worlds[i] = (struct world**) malloc(row_size);
 			all_positions = (struct world*) malloc(max_size * max_size * sizeof(struct world));
@@ -807,7 +814,6 @@ void populate_world_from_file(char file_name[]) {
 				worlds[i][j][0].cell_number = cell_number(j, 0);
 			}
 		}
-
 		/*populating*/
 		while(fscanf(fp, "%d %d %c", &i, &j, &a) != EOF) {
 			if(a=='w')
@@ -826,7 +832,6 @@ void populate_world_from_file(char file_name[]) {
 				exit(-1);
 			}	
 		}
-
 		fclose(fp);
 	}
 }
@@ -900,6 +905,7 @@ int main(int argc, char **argv) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 		printf("Já acabei %d \n", id);
+		//printf("N:%d\n", move_tos);
 		MPI_Finalize();
 	}
 	else {

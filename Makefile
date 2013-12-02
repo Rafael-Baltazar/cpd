@@ -63,13 +63,13 @@ $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)  $(FLAGS)
 
 run-serial: serial
-	time ./$(SERIAL_EXE) tests/world_100.in  2 2 800 1000000
+	time ./$(SERIAL_EXE) data 10 10 10 5
 	
 run-parallel: parallel
-	time ./$(PARALLEL_EXE) tests/world_100.in 2 2 800 1000000
+	time ./$(PARALLEL_EXE) data 10 10 10 10
 
 run-mpi: mpi
-	$(MPI_RUN) -np 4 $(MPI_EXE) data 10 10 10 10
+	$(MPI_RUN) -np 4 $(MPI_EXE) data 10 10 10 5
 
 test: serial parallel
 	./test.sh
