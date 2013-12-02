@@ -63,13 +63,13 @@ $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)  $(FLAGS)
 
 run-serial: serial
-	time ./$(SERIAL_EXE) data 10 10 10 5
+	time ./$(SERIAL_EXE) data 1 1 20 15
 	
 run-parallel: parallel
 	time ./$(PARALLEL_EXE) data 10 10 10 10
 
 run-mpi: mpi
-	$(MPI_RUN) -np 4 $(MPI_EXE) data 10 10 10 5
+	$(MPI_RUN) -np 4 $(MPI_EXE) data 1 1 20 15
 
 test: serial parallel
 	./test.sh
@@ -88,4 +88,4 @@ zipomp: $(SERIAL_C) $(PARALLEL_C) $(REPORT_OMP_FILENAME)
 	zip -j $(ZIP_FILENAME)$(OMP) $(ZIP_FILES) $(REPORT_OMP_FILENAME)
 
 clean:
-	rm -rf *.o $(SERIAL_EXE) $(PARALLEL_EXE) $(MPI_EXE) $(TMP_OUT)
+	rm -rf *.o $(SERIAL_EXE) $(PARALLEL_EXE) $(MPI_EXE) $(MAKE_TEST_EXE) $(TMP_OUT)
