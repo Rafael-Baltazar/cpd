@@ -179,12 +179,12 @@ inline void get_world_coordinates(int cell_number, int *row, int *col) {
  */
 void solve_conflict(struct world *src, struct world *dst) {
 	struct world temp = *dst;
-/*	if(!dst->type) {
+	if(!dst->type) {
 		*dst = *src;
 		return;
-	}*/
+	}
 	/* Eats squirrel or competes with another wolf */
-/*	if(src->type & WOLF) {
+	if(src->type & WOLF) {
 		if(dst->type == SQUIRREL) {
 			*dst = *src;
 			dst->ate_squirrel = 1;
@@ -198,9 +198,9 @@ void solve_conflict(struct world *src, struct world *dst) {
 				}
 			}
 		}
-	}*/
+	}
 	/* Is eaten by a wolf or competes with another squirrel */
-/*	else if(src->type & SQUIRREL) {
+	else if(src->type & SQUIRREL) {
 		if(dst->type & WOLF)
 			dst->ate_squirrel = 1;
 		else if(dst->type & SQUIRREL) {
@@ -209,15 +209,15 @@ void solve_conflict(struct world *src, struct world *dst) {
 			}
 		}
 	}
-*/
+
 	/* Fixes possible errors */
-/*	if(temp.type & TREE)
+	if(temp.type & TREE)
 		dst->type |= TREE;
 	else if(dst->type == SQUIRRELnTREE)
 		dst->type = SQUIRREL;	
 	if(temp.ate_squirrel > 0)
 		dst->ate_squirrel = 1;
-	dst->cell_number = temp.cell_number;*/
+	dst->cell_number = temp.cell_number;
 }
 
 /* 
@@ -315,6 +315,8 @@ void move_to(int src_row, int src_col, int dest_c, struct world **read_matrix, s
 				else 
 					write_dst_cell->type = SQUIRREL;
 			}
+		}
+		else {
 			*write_dst_cell = *read_src_cell; 
 			write_dst_cell->breed = new_breed_flag;
 			/* Prevent moving trees or deleting existing ones */
@@ -385,9 +387,11 @@ void update_squirrel(struct world **read_matrix, struct world **write_matrix, in
 	
 	n_possibilities = get_adjacents(row, col, possibilities);
 	n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
+	printf("Poss %d\n", n_moves);
 	if(n_moves) {
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen], read_matrix, write_matrix);
+		printf("Ficou %d, breeding %d\n", worlds[1][1][0].type, worlds[1][1][0].breeding_period);
 	}
  }
 
@@ -547,7 +551,7 @@ void iterate_subgeneration(int color) {
 	
 	
 	/* To ease the conflict solving */
- 	blank_write_ghost_lines();
+ 	//blank_write_ghost_lines();
 
 	/* Don't process the ghost lines */
 	for(i = ghost_lines_start; i < num_lines + ghost_lines_start; i++) {
@@ -559,32 +563,26 @@ void iterate_subgeneration(int color) {
         }
 		
 		for(j = start_col; j < max_size; j += N_COLORS) {
-            if(read_matrix[i][j].type & WOLF) {
-	
-					printf("UpdatingWolf %d line %d col %d\n", id, i, j);
+            if(read_matrix[i][j].type & WOLF) {	
+				printf("UpdatingWolf %d line %d col %d\n", id, i, j);
 				update_wolf(read_matrix, write_matrix, i,j);
             }
 			else if(read_matrix[i][j].type & SQUIRREL) {
+				printf("UpdatingSquirrel %d line %d col %d\n", id, i, j);
                 update_squirrel(read_matrix, write_matrix, i,j);
+				printf("Ficou %d, breeding %d\n", worlds[1][1][0].type, worlds[1][1][0].breeding_period);
 			}
 		}
 		
 	}
 	
 	/* Trade ghost lines */
-	send_ghost_lines();
-	receive_ghost_lines();
-
-	printf("%d Start %d End %d\n", id, buffer_start->type, buffer_end->type);//DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	/*send_ghost_lines();
+	receive_ghost_lines();*/
 
 	/* And solve conflicts */	
-	/*solve_ghost_conflict(buffer_start_size(id), 0, buffer_start);
-	solve_ghost_conflict(buffer_end_size(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_start(id + 1), buffer_end);*/
-
-	if(buffer_start->type == WOLF)//DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		printf("Wolf start %d\n", worlds[1][0]->type);
-	if(buffer_end->type == WOLF)
-		printf("Wolf end %d\n", worlds[1][ghost_lines_at_start(id) + num_lines - ghost_lines_at_end(id)]->type);
+	//solve_ghost_conflict(buffer_start_size(id), 0, buffer_start);
+	//solve_ghost_conflict(buffer_end_size(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_start(id + 1), buffer_end);
 }
 
 void print_cell(int l, int c) {
