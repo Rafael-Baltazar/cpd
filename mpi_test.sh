@@ -58,7 +58,7 @@ time ./wolves-squirrels-serial $TEST2.in $PARAMETERS_T2_1 > $TESTS_DIR/out/out_s
 #echo "Diferences:"
 #diff tests/$TEST2.out tests/out/out_serial2
 echo "Parallel version"
-time mpirun -np $NPROSC wolves-squirrels-mpi $TEST2.in $PARAMETERS_T2_1 > $TESTS_DIR/out/out_mpi2
+time mpirun -np $NPROCS wolves-squirrels-mpi $TEST2.in $PARAMETERS_T2_1 > $TESTS_DIR/out/out_mpi2
 #echo "Diferences"
 #diff tests/$TEST2.out tests/out/out_mpi2
 echo "Sequencial vs Parallel:"

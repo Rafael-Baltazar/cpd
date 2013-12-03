@@ -594,7 +594,6 @@ void process_generations() {
 			swap_matrix();
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
-			//print_matrix(i, color); <------------- REMOVE ME
 		}
 		update_periods(worlds[0], worlds[1]);
 	}
