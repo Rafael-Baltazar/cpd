@@ -37,9 +37,6 @@ int start_computation_line = 0, total_lines;
 MPI_Datatype mpi_world_type;
 struct world *buffer_start, *buffer_end;
 
-int move_tos = 0;
-
-
 #define TAG 101
 #define NITEMS 6
 #define N_ADJACENTS	4
@@ -60,6 +57,19 @@ struct world {
 	int breed;
 	int cell_number;
 } **worlds[N_COLORS]; 
+
+
+/*
+ * return 0, if different. Not zero, otherwise.
+ */
+inline int equals(struct world w1, struct world w2) {
+	return (w1.type == w2.type) &&
+		(w1.breeding_period == w2.breeding_period) &&
+		(w1.starvation_period == w2.starvation_period) &&
+		(w1.ate_squirrel == w2.ate_squirrel) &&
+		(w1.breed == w2.breed) &&
+		(w1.cell_number == w2.cell_number);
+}
 
 inline void swap_matrix(){
   struct world** aux;
@@ -188,7 +198,6 @@ void solve_conflict(struct world *src, struct world *dst) {
 		return;
 	}
 	
-	
 	/* Eats squirrel or competes with another wolf */
 	/* WOLF is moving*/
 	if(src->type & WOLF) {
@@ -206,8 +215,6 @@ void solve_conflict(struct world *src, struct world *dst) {
 			}
 		}
 	}
-	
-	
 	/* Is eaten by a wolf or competes with another squirrel */
 	/* SQUIRREL is moving*/
 	else if(src->type & SQUIRREL) {
@@ -397,11 +404,9 @@ void update_squirrel(struct world **read_matrix, struct world **write_matrix, in
 	
 	n_possibilities = get_adjacents(row, col, possibilities);
 	n_moves = get_walkable_cells(read_matrix, possibilities, n_possibilities, may_move, ICE | WOLF);
-	//printf("Poss %d\n", n_moves);
 	if(n_moves) {
 		chosen = choose_position(row, col, n_moves);
 		move_to(row, col, may_move[chosen], read_matrix, write_matrix);
-		//printf("Ficou %d, breeding %d\n", worlds[1][1][0].type, worlds[1][1][0].breeding_period);
 	}
  }
 
@@ -545,10 +550,10 @@ void solve_ghost_conflict(int nlines, int index, struct world *buffer) {
 
 	for(i = 0; i < nlines; i++) {
 		for(j = 0; j < max_size; j++) {
-			if(worlds[0][index + i][j].type == buffer[i * max_size + j].type) {//TESTING
+			if(equals(worlds[0][index + i][j], buffer[i * max_size + j])) {//TESTING
 				continue;
 			}
-			else if(worlds[0][index + i][j].type == worlds[1][index + i][j].type) {
+			else if(equals(worlds[0][index + i][j], worlds[1][index + i][j])) {
 				worlds[1][index + i][j] = buffer[i * max_size + j];
 			}
 			else {
@@ -563,14 +568,9 @@ void solve_ghost_conflict(int nlines, int index, struct world *buffer) {
  * color: the color of the subgeneration to be updated.
  */
 void iterate_subgeneration(int color) {
-	move_tos++;
 	int i, j, start_col;
 	struct world **read_matrix = worlds[0];
 	struct world **write_matrix = worlds[1];
-	
-	
-	/* To ease the conflict solving */
- 	//blank_write_ghost_lines();
 
 	/* Don't process the ghost lines */
 	for(i = ghost_lines_start; i < num_lines + ghost_lines_start; i++) {
@@ -582,14 +582,11 @@ void iterate_subgeneration(int color) {
         }
 		
 		for(j = start_col; j < max_size; j += N_COLORS) {
-            if(read_matrix[i][j].type & WOLF) {	
-				//printf("UpdatingWolf %d line %d col %d\n", id, i, j);
+			if(read_matrix[i][j].type & WOLF) {	
 				update_wolf(read_matrix, write_matrix, i,j);
-            }
+			}
 			else if(read_matrix[i][j].type & SQUIRREL) {
-				//printf("UpdatingSquirrel %d line %d col %d\n", id, i, j);
-                update_squirrel(read_matrix, write_matrix, i,j);
-				//printf("Ficou %d, breeding %d\n", worlds[1][1][0].type, worlds[1][1][0].breeding_period);
+				update_squirrel(read_matrix, write_matrix, i,j);
 			}
 		}
 		
@@ -599,7 +596,7 @@ void iterate_subgeneration(int color) {
 	send_ghost_lines();
 	receive_ghost_lines();
 	
-	/* And solve conflicts */	
+	/* And solve conflicts */
 	solve_ghost_conflict(buffer_start_size(id), 0, buffer_start);
 	solve_ghost_conflict(buffer_end_size(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_start(id + 1), buffer_end);
 }
@@ -940,7 +937,6 @@ int main(int argc, char **argv) {
 		
 
 		MPI_Barrier(MPI_COMM_WORLD);
-		//printf("N:%d\n", move_tos);
 		MPI_Finalize();
 	}
 	else {
