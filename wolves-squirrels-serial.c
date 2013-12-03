@@ -129,6 +129,56 @@ int get_adjacents(int row, int col, int *adjacents) {
 	return found;
 }
 
+char get_type_char(struct world *cell) {
+	char type;
+
+	if(cell->type & WOLF) {
+		type = 'w';
+	}
+	else if(cell->type & SQUIRREL) {
+		/*Squirrel and a tree*/
+		if(cell->type & TREE) {
+			type = '$';
+		}
+		else {
+			type = 's';
+		}
+	}
+	else if(cell->type & ICE) {
+		type = 'i';
+	}
+	else if(cell->type & TREE){
+		type = 't';
+	}
+
+	else {
+		type = ' ';
+	}
+
+	return type;
+}
+
+void print_matrix(int generation, int subgeneration) {
+	int i, j, p;
+
+	printf("Generation: %d Subgeneration: %d\n", generation, subgeneration);
+	for(i = 0; i < max_size; i++) {
+		printf("Line %d |", i);
+		for(j = 0; j < max_size; j++) {
+			printf("%c|", get_type_char(&worlds[1][i][j]));
+		}
+		printf("\n");
+		printf("       ");
+		for(j = 0; j < max_size * 2 + 1; j++) {
+			printf("-");
+		}
+		printf("\n");
+		fflush(stdout);
+	}
+}
+
+
+
 /*
  * get_world_coordinates: Return in row and col the right
  *	coordinates of the matric of a given cell number
@@ -544,6 +594,7 @@ void process_generations() {
 			swap_matrix();
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
+			//print_matrix(i, color); <------------- REMOVE ME
 		}
 		update_periods(worlds[0], worlds[1]);
 	}
