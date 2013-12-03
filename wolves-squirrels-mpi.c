@@ -150,7 +150,7 @@ int get_adjacents(int row, int col, int *adjacents) {
 	}
 
 	/*Has right adjacent cell?*/
-	if(col < total_lines - 1) {
+	if(col < max_size-1) {
 		adjacents[found++] = cell_number(row, col + 1);
 	}
 
@@ -894,7 +894,7 @@ void process_generations() {
 			swap_matrix();
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
-			print_matrix(i, color);
+			//print_matrix(i, color); <------------------REMOVE ME!
 			MPI_Barrier(MPI_COMM_WORLD);
 		}
 		update_periods(worlds[0], worlds[1]);

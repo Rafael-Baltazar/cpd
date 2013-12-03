@@ -32,11 +32,11 @@ time ./wolves-squirrels-serial $TEST1.in $PARAMETERS_T1_1 > $TESTS_DIR/out/out_s
 #echo "Diferences:"
 #diff tests/$TEST1_1_OUT tests/out/out_serial1_1
 echo "Parallel version"
-time mpirun -np $NPROCS wolves-squirrels-mpi $TEST1.in $PARAMETERS_T1_1 > $TESTS_DIR/out/out_parallel1_1
+time mpirun -np $NPROCS wolves-squirrels-mpi $TEST1.in $PARAMETERS_T1_1 > $TESTS_DIR/out/out_mpi1_1
 #echo "Diferences"
-#diff tests/$TEST1_1_OUT tests/out/out_parallel1_1
+#diff tests/$TEST1_1_OUT tests/out/out_mpi1_1
 echo "Sequencial vs Parallel:"
-diff $TESTS_DIR/out/out_serial1_1 $TESTS_DIR/out/out_parallel1_1
+diff $TESTS_DIR/out/out_serial1_1 $TESTS_DIR/out/out_mpi1_1
 
 echo "-------------"
 echo "$TEST1.in $PARAMETERS_T1_2"
@@ -45,11 +45,11 @@ time ./wolves-squirrels-serial $TEST1.in $PARAMETERS_T1_2 > $TESTS_DIR/out/out_s
 #echo "Diferences:"
 #diff tests/$TEST1_2_OUT tests/out/out_serial1_2
 echo "Parallel version"
-time mpirun -np $NPROCS wolves-squirrels-mpi $TEST1.in $PARAMETERS_T1_2 > $TESTS_DIR/out/out_parallel1_2
+time mpirun -np $NPROCS wolves-squirrels-mpi $TEST1.in $PARAMETERS_T1_2 > $TESTS_DIR/out/out_mpi1_2
 #echo "Diferences"
-#diff tests/$TEST1_2_OUT tests/out/out_parallel1_2
+#diff tests/$TEST1_2_OUT tests/out/out_mpi1_2
 echo "Sequencial vs Parallel:"
-diff $TESTS_DIR/out/out_serial1_2 $TESTS_DIR/out/out_parallel1_2
+diff $TESTS_DIR/out/out_serial1_2 $TESTS_DIR/out/out_mpi1_2
 
 echo "-------------"
 echo "$TEST2.in $PARAMETERS_T2_1"
@@ -58,11 +58,11 @@ time ./wolves-squirrels-serial $TEST2.in $PARAMETERS_T2_1 > $TESTS_DIR/out/out_s
 #echo "Diferences:"
 #diff tests/$TEST2.out tests/out/out_serial2
 echo "Parallel version"
-time mpirun -np $NPROSC wolves-squirrels-mpi $TEST2.in $PARAMETERS_T2_1 > $TESTS_DIR/out/out_parallel2
+time mpirun -np $NPROSC wolves-squirrels-mpi $TEST2.in $PARAMETERS_T2_1 > $TESTS_DIR/out/out_mpi2
 #echo "Diferences"
-#diff tests/$TEST2.out tests/out/out_parallel2
+#diff tests/$TEST2.out tests/out/out_mpi2
 echo "Sequencial vs Parallel:"
-diff $TESTS_DIR/out/out_serial2 $TESTS_DIR/out/out_parallel2
+diff $TESTS_DIR/out/out_serial2 $TESTS_DIR/out/out_mpi2
 
 echo "-------------"
 echo "$TEST3.in $PARAMETERS_T3_1"
@@ -71,11 +71,11 @@ time ./wolves-squirrels-serial $TEST3.in $PARAMETERS_T3_1 > $TESTS_DIR/out/out_s
 #echo "Diferences:"
 #diff tests/$TEST3.out tests/out/out_serial3
 echo "Parallel version"
-time mpirun -np $NPROCS wolves-squirrels-mpi $TEST3.in $PARAMETERS_T3_1 > $TESTS_DIR/out/out_parallel3
+time mpirun -np $NPROCS wolves-squirrels-mpi $TEST3.in $PARAMETERS_T3_1 > $TESTS_DIR/out/out_mpi3
 #echo "Diferences"
-#diff tests/$TEST3.out tests/out/out_parallel3
+#diff tests/$TEST3.out tests/out/out_mpi3
 echo "Sequencial vs Parallel:"
-diff $TESTS_DIR/out/out_serial3 $TESTS_DIR/out/out_parallel3
+diff $TESTS_DIR/out/out_serial3 $TESTS_DIR/out/out_mpi3
 
 #echo "-------------"
 #echo "$TEST4.in $PARAMETERS_T4_1"
@@ -84,10 +84,10 @@ diff $TESTS_DIR/out/out_serial3 $TESTS_DIR/out/out_parallel3
 #echo "Diferences:"
 #diff tests/$TEST4.out tests/out/out_serial4
 #echo "Parallel version"
-#time mpirun -np $NPROCS wolves-squirrels-mpi $TEST4.in $PARAMETERS_T4_1 > $TESTS_DIR/out/out_parallel4
+#time mpirun -np $NPROCS wolves-squirrels-mpi $TEST4.in $PARAMETERS_T4_1 > $TESTS_DIR/out/out_mpi4
 #echo "Diferences"
-#diff tests/$TEST4.out tests/out/out_parallel4
+#diff tests/$TEST4.out tests/out/out_mpi4
 #echo "Sequencial vs Parallel:"
-#diff $TESTS_DIR/out/out_serial4 $TESTS_DIR/out/out_parallel4
+#diff $TESTS_DIR/out/out_serial4 $TESTS_DIR/out/out_mpi4
 
 

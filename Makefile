@@ -63,7 +63,7 @@ $(SERIAL_O): $(SERIAL_C)
 	$(CC) -c $(SERIAL_C) -o $(SERIAL_O)  $(FLAGS)
 
 run-serial: serial
-	time ./$(SERIAL_EXE) data 1 1 20 15
+	time ./$(SERIAL_EXE) data 10 10 10 5
 	
 run-parallel: parallel
 	time ./$(PARALLEL_EXE) data 10 10 10 10
@@ -71,8 +71,11 @@ run-parallel: parallel
 run-mpi: mpi
 	$(MPI_RUN) -np 4 $(MPI_EXE) data 10 10 10 5 > out
 
-test: serial parallel
+test-parallel: serial parallel
 	./test.sh
+
+test-mpi: serial mpi
+	./mpi_test.sh
 
 debug-serial: serial
 	$(DEBUGGER) ./$(SERIAL_EXE)
