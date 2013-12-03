@@ -220,13 +220,13 @@ void solve_conflict(struct world *src, struct world *dst) {
 		}
 	}
 	
-	/* Fixes possible errors 
+	/* Fixes possible errors */
 	if(temp.type & TREE)
 		dst->type |= TREE;
 	else if(dst->type == SQUIRRELnTREE)
 		dst->type = SQUIRREL;	
 	if(temp.ate_squirrel > 0)
-		dst->ate_squirrel = 1;*/
+		dst->ate_squirrel = 1;
 	dst->cell_number = temp.cell_number;
 }
 
@@ -552,7 +552,7 @@ void solve_ghost_conflict(int nlines, int index, struct world *buffer) {
 				worlds[1][index + i][j] = buffer[i * max_size + j];
 			}
 			else {
-				 (&buffer[i * max_size + j], &worlds[1][index + i][j]);
+				 solve_conflict(&buffer[i * max_size + j], &worlds[1][index + i][j]);
 			}
 		}
 	}
@@ -604,30 +604,40 @@ void iterate_subgeneration(int color) {
 	solve_ghost_conflict(buffer_end_size(id), ghost_lines_at_start(id) + num_lines - ghost_lines_at_start(id + 1), buffer_end);
 }
 
-void print_cell(int l, int c) {
+char get_type_char(struct world *cell) {
 	char type;
+
+	if(cell->type & WOLF) {
+		type = 'w';
+	}
+	else if(cell->type & SQUIRREL) {
+		/*Squirrel and a tree*/
+		if(cell->type & TREE) {
+			type = '$';
+		}
+		else {
+			type = 's';
+		}
+	}
+	else if(cell->type & ICE) {
+		type = 'i';
+	}
+	else if(cell->type & TREE){
+		type = 't';
+	}
+
+	else {
+		type = ' ';
+	}
+
+	return type;
+}
+
+void print_cell(int l, int c) {
 	struct world cell = worlds[1][l][c];
 
 	if(cell.type) {
-		if(cell.type & WOLF) {
-			type = 'w';
-		}
-		else if(cell.type & SQUIRREL) {
-			/*Squirrel and a tree*/
-			if(cell.type & TREE) {
-				type = '$';
-			}
-			else {
-				type = 's';
-			}
-		}
-		else if(cell.type & ICE) {
-			type = 'i';
-		}
-		else {
-			type = 't';
-		}
-		printf("%d %d %c\n", l, c, type);
+		printf("%d %d %c\n", l, c, get_type_char(&cell));
 	}
 }
 
@@ -853,6 +863,30 @@ void gather_matrix() {
         }
 }
 
+void print_matrix(int generation, int subgeneration) {
+	int i, j, p;
+
+	for(p = 0; p < nprocs; p++) {
+		MPI_Barrier(MPI_COMM_WORLD);
+		if(p == id) {
+			printf("Process %d Generation: %d Subgeneration: %d\n", id, generation, subgeneration);
+			for(i = 0; i < total_lines; i++) {
+				printf("Line %d |", i + start_computation_line);
+				for(j = 0; j < max_size; j++) {
+					printf("%c|", get_type_char(&worlds[1][i][j]));
+				}
+				printf("\n");
+				printf("       ");
+				for(j = 0; j < max_size * 2 + 1; j++) {
+					printf("-");
+				}
+				printf("\n");
+				fflush(stdout);
+			}
+		}
+	}
+}
+
 /*  
  * process_generations: Process all the generations
  */
@@ -863,6 +897,8 @@ void process_generations() {
 			swap_matrix();
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
+			print_matrix(i, color);
+			MPI_Barrier(MPI_COMM_WORLD);
 		}
 		update_periods(worlds[0], worlds[1]);
 	}
@@ -904,7 +940,6 @@ int main(int argc, char **argv) {
 		
 
 		MPI_Barrier(MPI_COMM_WORLD);
-		printf("Já acabei %d \n", id);
 		//printf("N:%d\n", move_tos);
 		MPI_Finalize();
 	}
