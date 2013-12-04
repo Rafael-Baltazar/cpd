@@ -630,47 +630,41 @@ char get_type_char(struct world *cell) {
 	return type;
 }
 
-void print_cell(int l, int c) {
+inline void print_cell(int l, int c, int prev_proc_last_line) {
 	struct world cell = worlds[1][l][c];
 
 	if(cell.type) {
-		printf("%d %d %c\n", l, c, get_type_char(&cell));
-	}
-}
-
-void print_process_cells() {
-	int i, j;
-
-	for(i = 0; i < num_lines; i++) {
-		for(j = 0; j < max_size; j++) {
-			print_cell(i, j);
-		}
+		printf("%d %d %c\n", l + prev_proc_last_line, c, get_type_char(&cell));
 	}
 }
 
 /*prints the world*/
 void print_all_cells(){
-	int i, j;
+	int i, j, p, process_lines, prev_proc_lines;
 
-	for(i = 0; i < max_size; i++) {
+	/* First: Print the master process's lines */
+	for(i = 0, prev_proc_lines = 0; i < num_lines; i++, prev_proc_lines++) {
 		for(j = 0; j < max_size; j++) {
-			print_cell(i, j);
+			print_cell(i, j, 0);
 		}
 	}
-}
 
-/*prints the world for debug*/
-void print_for_debug(struct world **world){
-	int i, j;
-	for(i = 0; i < max_size; i++) {
-		for(j = 0; j < max_size; j++) {
-			printf("%d", world[i][j].type);
+	/* Receive the lines of each process and print them */
+	for(p = 1; p < nprocs; p++) {
+		process_lines = get_num_lines(max_size, nprocs, p);
+
+		MPI_Recv(worlds[1][0], process_lines * max_size, mpi_world_type, p, 
+				TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	
+		for(i = 0; i < process_lines; i++) {
+			for(j = 0; j < max_size; j++) {
+				print_cell(i, j, prev_proc_lines);
+			}
 		}
-		printf("\n");
-	}
-	printf("\n");
-}
 
+		prev_proc_lines += process_lines;
+	}
+}
 
 void initiate_worlds(int row, int col, int type, int s_p, int b_p){
   int i;
@@ -883,6 +877,15 @@ void print_matrix(int generation, int subgeneration) {
 		}
 	}
 }
+/*
+   * send_lines_to_master: Send computed lines to
+   * process master that is waiting for them to
+   * print
+   */
+void send_lines_to_master() {
+	MPI_Send(worlds[1][ghost_lines_start], num_lines * max_size,
+		   	mpi_world_type, 0, TAG, MPI_COMM_WORLD);
+}
 
 /*  
  * process_generations: Process all the generations
@@ -894,10 +897,12 @@ void process_generations() {
 			swap_matrix();
 			copy_matrix(worlds[0], worlds[1]);
 			iterate_subgeneration(color);
-			//print_matrix(i, color); <------------------REMOVE ME!
-			MPI_Barrier(MPI_COMM_WORLD);
 		}
 		update_periods(worlds[0], worlds[1]);
+	}
+
+	if(id) {
+		send_lines_to_master();
 	}
 }
 
@@ -928,7 +933,7 @@ int main(int argc, char **argv) {
 			create_mpi_datatype();
 			scatter_matrix();
 			process_generations();
-			gather_matrix();
+		/*	gather_matrix();*/
 		}
 
 		if(!id) {
@@ -940,7 +945,7 @@ int main(int argc, char **argv) {
 		MPI_Finalize();
 	}
 	else {
-		printf("Usage: wolves-squirrels-serial <input file name> <wolf_breeding_period> ");
+		printf("Usage: wolves-squirrels-mpi <input file name> <wolf_breeding_period> ");
 		printf("<squirrel_breeding_period> <wolf_startvation_period> <# of generations>\n");
 	}
 	return 0;	

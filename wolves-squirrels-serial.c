@@ -159,7 +159,7 @@ char get_type_char(struct world *cell) {
 }
 
 void print_matrix(int generation, int subgeneration) {
-	int i, j, p;
+	int i, j;
 
 	printf("Generation: %d Subgeneration: %d\n", generation, subgeneration);
 	for(i = 0; i < max_size; i++) {

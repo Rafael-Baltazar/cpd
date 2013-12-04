@@ -69,7 +69,7 @@ run-parallel: parallel
 	time ./$(PARALLEL_EXE) data 10 10 10 10
 
 run-mpi: mpi
-	$(MPI_RUN) -np 4 $(MPI_EXE) data 10 10 10 5 > out
+	$(MPI_RUN) -np 4 $(MPI_EXE) data 10 10 10 5
 
 test-parallel: serial parallel
 	./test.sh
