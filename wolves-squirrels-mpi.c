@@ -856,7 +856,7 @@ void populate_cell(int line, int col, char type, struct world **matrix) {
 
 void scatter_matrix_from_file(char *file_name) {
 	FILE *file;
-	int i, j, p = 1, read_lines, process_lines, read;;
+	int i, j, p = 0, maped_index = 0, lines_to_read, last_read_line, frist_line;
 	char c = '\0';
 	struct world **buffer;
 
@@ -873,33 +873,36 @@ void scatter_matrix_from_file(char *file_name) {
 	alloc_worlds();
 
 	buffer = create_world(num_lines + 2 * GHOST_LINES + 1);
+	lines_to_read = total_lines;
+	frist_line = 1;
 
-	read_lines = total_lines;
-	
 	/* Read the first lines and check if it's for the master process */
-	while((fscanf(file, "%d %d %c", &i, &j, &c)) != EOF) {
-		if(i < total_lines) {
-			populate_cell(i, j, c, worlds[0]);
-		}
-		else {
-			/* Find which process is */
-			process_lines = get_num_lines(max_size, nprocs, p);
-			while(i > read_lines - 1 && i < read_lines + process_lines) {
-				read_lines += get_num_lines(max_size, nprocs, p++);
-			}
-			break;
-		}
-	}
-	
-	for(p = 1; p < nprocs; p++) {
-		if(c) {
+	while((fscanf(file, "%d %d %c", &i, &j, &c)) != EOF) {	
 
+		if(lines_to_read<=0) { /*no more lines to this process. Calculating the number of lines to read in the next process*/
+		  
+			/*<------------ SEND LINES TO PROCESS P*/
+			++p;
+			lines_to_read = lines_to_read + get_num_lines(max_size, nprocs, p) + ghost_lines_at_start(p) + ghost_lines_at_end(p);
+			maped_index += lines_to_read+1;
 		}
-		while(fscanf(file, "%d %d %c", &i, &j, &c) != EOF) {
-			//if()
+
+		if(frist_line) { /*init the variable with the frist line of the file*/
+			last_read_line = i;
+			lines_to_read -= i; /*in case the input file doesn't start on line 0, we must fix the number os lines to read*/
+			--frist_line;
+		}else {
+			if(i-last_read_line == 1) /*reading the next line*/
+				--lines_to_read;
+			else if(i-last_read_line > 1) /*the next number in the file jumps 1 ou more lines and may end up in another process line*/
+				lines_to_read -= (i-1-last_read_line);
 		}
-	}
-	
+
+		if(lines_to_read>0){ /*process P still has lines to populate*/
+			populate_cell(i+maped_index,j,c,buffer);
+			last_read_line = i;
+		}
+	}	
 }
 
 void populate_world_from_file(char file_name[]) {
