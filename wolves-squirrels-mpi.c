@@ -789,6 +789,119 @@ void scatter_matrix() {
 	}
 }
 
+void init_process() {
+	num_lines = get_num_lines(max_size, nprocs, id);
+
+	ghost_lines_start = ghost_lines_at_start(id);
+	ghost_lines_end = ghost_lines_at_end(id);
+
+	total_lines = num_lines + ghost_lines_start + ghost_lines_end;
+}
+
+struct world **create_world(int nlines) {
+	struct world *all_positions;
+	struct world **new_world;
+	int i;
+
+	new_world = (struct world**) malloc(nlines * sizeof(struct world*));
+	all_positions = (struct world*) malloc(nlines * max_size * sizeof(struct world));
+	
+	for(i = 0; i < total_lines; i++) {
+		new_world[i] = all_positions + (i * max_size);
+		/* Put zeros in each line of each world */
+		memset((void*) new_world[i], 0, max_size * sizeof(struct world));
+		/* Later each process will know the index of start processing line
+		   in the original matrix */
+		new_world[i][0].cell_number = cell_number(i, 0);
+	}
+}
+
+void alloc_worlds() {
+	int i, j;
+	struct world *all_positions;
+	
+	for(i = 0; i < N_COLORS; i++) {
+		worlds[i] = create_world(total_lines);	
+
+	}
+}
+
+void populate_cell(int line, int col, char type, struct world **matrix) {
+	struct world *cell = &matrix[line][col]; 
+	
+	if(type == 'w') {
+		cell->type = WOLF;
+		cell->starvation_period = w_starvation_p;
+	   	cell->breeding_period =	w_breeding_p;
+	}
+	else if(type=='s') {
+		cell->type = SQUIRREL;
+		cell->breeding_period = s_breeding_p;
+	}
+	else if(type=='i') {
+		cell->type = ICE;
+	}
+	else if(type=='t') {
+		cell->type = TREE;
+	}
+	else if(type=='$') {
+		cell->type = SQUIRRELnTREE;
+		cell->breeding_period = s_breeding_p;
+	}
+	else {
+		printf("Error in input file\n");
+		exit(-1);
+	}	
+}
+
+void scatter_matrix_from_file(char *file_name) {
+	FILE *file;
+	int i, j, p = 1, read_lines, process_lines, read;;
+	char c = '\0';
+	struct world **buffer;
+
+	file = fopen(file_name, "r");
+	if(file == NULL) {
+		printf("Error while opening the file %s.\n", file_name);
+		exit(-1);
+	}
+
+	/* Read max_size */
+	fscanf(file, "%d", &max_size);
+	MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	init_process();
+	alloc_worlds();
+
+	buffer = create_world(num_lines + 2 * GHOST_LINES + 1);
+
+	read_lines = total_lines;
+	
+	/* Read the first lines and check if it's for the master process */
+	while((fscanf(file, "%d %d %c", &i, &j, &c)) != EOF) {
+		if(i < total_lines) {
+			populate_cell(i, j, c, worlds[0]);
+		}
+		else {
+			/* Find which process is */
+			process_lines = get_num_lines(max_size, nprocs, p);
+			while(i > read_lines - 1 && i < read_lines + process_lines) {
+				read_lines += get_num_lines(max_size, nprocs, p++);
+			}
+			break;
+		}
+	}
+	
+	for(p = 1; p < nprocs; p++) {
+		if(c) {
+
+		}
+		while(fscanf(file, "%d %d %c", &i, &j, &c) != EOF) {
+			//if()
+		}
+	}
+	
+}
+
 void populate_world_from_file(char file_name[]) {
 	FILE *fp;
 	int i, j, size, row_size;
