@@ -45,10 +45,10 @@ $(MAKE_TEST_O): $(MAKE_TEST_C)
 	$(CC) -c $(MAKE_TEST_C) -o $(MAKE_TEST_O)  $(FLAGS)
 
 $(MPI_O): $(MPI_C)
-	$(MPICC) $(MPI_FLAGS) -c $(MPI_C) -o $(MPI_O)
+	$(MPICC) $(MPI_FLAGS) $(P_FLAGS) -c $(MPI_C) -o $(MPI_O)
 
 $(MPI_EXE): $(MPI_O)
-	$(MPICC) $(MPI_FLAGS) -o $(MPI_EXE) $(MPI_O)
+	$(MPICC) $(MPI_FLAGS) $(P_FLAGS) -o $(MPI_EXE) $(MPI_O)
 
 $(PARALLEL_O): $(PARALLEL_C)
 	$(CC) $(P_FLAGS) -c $(PARALLEL_C) -o $(PARALLEL_O) $(FLAGS)
