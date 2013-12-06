@@ -862,7 +862,7 @@ void populate_world_from_file(char file_name[]) {
    /* struct world ***right_world; */
         fp = fopen(file_name,"r");
         if(fp == NULL) {
-                printf("Error while opening the file.\n");
+                printf("Error while opening the file %s.\n", file_name);
         } else {
                 fscanf(fp, "%d", &max_size);
         row_size = max_size*sizeof(struct world*);
@@ -984,7 +984,7 @@ int main(int argc, char **argv) {
                 MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
                 MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
-				if(argc == N_ARGS + 1 && !strcmp(argv[6], "time")) {
+				if((argc == N_ARGS + 1) && !strcmp(argv[6], "time") && !id) {
 						time_start = MPI_Wtime();
 				}
                 /*Only the master thread has the entire matrix*/
@@ -1011,7 +1011,7 @@ int main(int argc, char **argv) {
                         print_all_cells();
                 }
 
-				if(time_start) {
+				if(time_start && !id) {
 						time_end = MPI_Wtime();
 						printf("Time: %f\n", time_end - time_start);
 				}

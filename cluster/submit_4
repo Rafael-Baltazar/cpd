@@ -1,8 +1,8 @@
 universe = parallel
 executable = /usr/sbin/ompiwrapper.sh
 arguments = ../wolves-squirrels-mpi ../../tests/world_10.in 20 5 30 5 time
-log = /mnt/nimbus/pool/CPD/groups/9/log0
-output = /mnt/nimbus/pool/CPD/groups/9/out0
-error = /mnt/nimbus/pool/CPD/groups/9/err0
+log = /mnt/nimbus/pool/CPD/groups/9/T1_4/log4
+output = /mnt/nimbus/pool/CPD/groups/9/T1_4/out4
+error = /mnt/nimbus/pool/CPD/groups/9/T1_4/err4
 machine_count = 4
 queue
