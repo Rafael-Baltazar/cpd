@@ -100,10 +100,15 @@ inline int choose_position(int row, int col, int p) {
  }
 
 void init_ghost_buffers() {	
-	buffer_start = (struct world*) malloc(buffer_start_size(id) * max_size * sizeof(struct world));	
-	buffer_end = (struct world*) malloc(buffer_end_size(id) * max_size * sizeof(struct world));
-	memset(buffer_start, 0, sizeof(buffer_start_size(id) * max_size * sizeof(struct world)));
-	memset(buffer_end, 0, sizeof(buffer_start_size(id) * max_size * sizeof(struct world)));
+	if(buffer_start_size(id)) {
+		buffer_start = (struct world*) malloc(buffer_start_size(id) * max_size * sizeof(struct world));	
+		memset(buffer_start, 0, buffer_start_size(id) * max_size * sizeof(struct world));
+	}
+
+	if(buffer_end_size(id)) {
+		buffer_end = (struct world*) malloc(buffer_end_size(id) * max_size * sizeof(struct world));
+		memset(buffer_end, 0, buffer_end_size(id) * max_size * sizeof(struct world));
+	}
 }
 
 inline int buffer_start_size(int nid) {
@@ -639,7 +644,7 @@ inline void print_cell(int l, int c, int prev_proc_last_line) {
 }
 
 /*prints the world*/
-void print_all_cells(){
+void print_all_cells() {
 	int i, j, p, process_lines, prev_proc_lines;
 
 	/* First: Print the master process's lines */
@@ -753,42 +758,6 @@ int ghost_lines_at_end(int process_id) {
 	}
 }
 
-/*
- * Distributes the worlds by an aproximate number of lines to each process
- */
-void scatter_matrix() {
-	int i, size, row_size, proc_num_lines, begin_index = 0;
-	int ghosts_start, ghosts_end, total_ghosts, col;
-	int process_total_lines;	
-
-	num_lines = get_num_lines(max_size, nprocs, id);
-
-	ghost_lines_start = ghost_lines_at_start(id);
-	ghost_lines_end = ghost_lines_at_end(id);
-
-	if(!id) {
-		total_ghosts = ghost_lines_start + ghost_lines_end;
-		total_lines = num_lines + total_ghosts;
-		/* Send some lines of the matrix to the other processors*/
-		for(i = 1, begin_index = num_lines; i < nprocs; i++, begin_index += proc_num_lines) {
-			proc_num_lines = get_num_lines(max_size, nprocs, i);
-			ghosts_start = ghost_lines_at_start(i);
-			ghosts_end = ghost_lines_at_end(i);
-			total_ghosts = ghosts_start + ghosts_end;
-			process_total_lines = proc_num_lines + total_ghosts;
-			MPI_Send(worlds[0][begin_index - ghosts_start], process_total_lines * max_size, mpi_world_type, i, TAG, MPI_COMM_WORLD);
-		}
-	} else {
-		total_ghosts = ghost_lines_start + ghost_lines_end;
-		total_lines = num_lines + total_ghosts;
-		init_worlds(total_ghosts);
-		MPI_Recv(worlds[0][0], total_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		start_cell = worlds[0][0][0].cell_number;
-		copy_matrix(worlds[0], worlds[1]);
-		get_global_world_coordinates(start_cell, &start_computation_line, &col);
-	}
-}
-
 void init_process() {
 	num_lines = get_num_lines(max_size, nprocs, id);
 
@@ -814,6 +783,8 @@ struct world **create_world(int nlines) {
 		   in the original matrix */
 		new_world[i][0].cell_number = cell_number(i, 0);
 	}
+
+	return new_world;
 }
 
 void alloc_worlds() {
@@ -824,6 +795,26 @@ void alloc_worlds() {
 		worlds[i] = create_world(total_lines);	
 
 	}
+}
+
+/*
+ * Slaves receive matrix from master
+ */
+void receive_matrix_from_master() {
+	int i, size, row_size, proc_num_lines, begin_index = 0;
+	int ghosts_start, ghosts_end, total_ghosts, col;
+	int process_total_lines;	
+
+	init_process();
+	alloc_worlds();
+
+	total_ghosts = ghost_lines_start + ghost_lines_end;
+	printf("TotalLines %d p %d\n", total_lines, id);
+	MPI_Recv(worlds[0][0], total_lines * max_size, mpi_world_type, 0, TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+	start_cell = worlds[0][0][0].cell_number;
+	copy_matrix(worlds[0], worlds[1]);
+	get_global_world_coordinates(start_cell, &start_computation_line, &col);
 }
 
 void populate_cell(int line, int col, char type, struct world **matrix) {
@@ -851,12 +842,34 @@ void populate_cell(int line, int col, char type, struct world **matrix) {
 	else {
 		printf("Error in input file\n");
 		exit(-1);
-	}	
+	}
 }
 
+/*
+ * Copy the last num_lines to the beginning of the buffer.
+ * Then set the rest to zero.
+ */
+void prepare_buffer(struct world **buffer, int p) {
+	int len_buffer = ghost_lines_at_start(p) + get_num_lines(max_size, nprocs, p) + ghost_lines_at_end(p);
+	int ghost_start = ghost_lines_at_start(p + 1);
+	int index;
+
+	index = len_buffer - ghost_lines_at_end(p) - ghost_start;
+
+	if(p < nprocs - 1) {
+		memmove(buffer[0], buffer[index], (len_buffer - index) * max_size * sizeof(struct world));
+		memset(buffer[ghost_start + 1], 0, (len_buffer - (ghost_start + 1)) * max_size * sizeof(struct world));
+	}
+}
+
+/*
+ * Broadcast the size of the line of the matrix.
+ * Then distributes the world to each process.
+ */
 void scatter_matrix_from_file(char *file_name) {
 	FILE *file;
-	int i, j, p = 0, maped_index = 0, lines_to_read, last_read_line, frist_line;
+	int i, j, len_buffer, p = 0;
+	int	global_index, cur_num_lines;
 	char c = '\0';
 	struct world **buffer;
 
@@ -872,39 +885,47 @@ void scatter_matrix_from_file(char *file_name) {
 	init_process();
 	alloc_worlds();
 
-	buffer = create_world(num_lines + 2 * GHOST_LINES + 1);
-	lines_to_read = total_lines;
-	frist_line = 1;
+	buffer = create_world(num_lines + 2 * GHOST_LINES);
 
-	/* Read the first lines and check if it's for the master process */
+	global_index = 0;
+	cur_num_lines = num_lines;
+
+	/*  */
 	while((fscanf(file, "%d %d %c", &i, &j, &c)) != EOF) {	
 
-		if(lines_to_read<=0) { /*no more lines to this process. Calculating the number of lines to read in the next process*/
-		  
-			/*<------------ SEND LINES TO PROCESS P*/
-			++p;
-			lines_to_read = lines_to_read + get_num_lines(max_size, nprocs, p) + ghost_lines_at_start(p) + ghost_lines_at_end(p);
-			maped_index += lines_to_read+1;
+		while(i >= global_index + cur_num_lines + ghost_lines_at_end(p)) {
+			if(!p) {
+				memcpy(worlds[0], buffer, total_lines * max_size * sizeof(struct world));
+				memcpy(worlds[1], buffer, total_lines * max_size * sizeof(struct world));
+			}
+			else {
+				len_buffer = ghost_lines_at_start(p) + get_num_lines(max_size, nprocs, p) + ghost_lines_at_end(p);
+				printf("LenBuffer %d p %d\n", len_buffer, p);
+                MPI_Send(buffer[0], len_buffer * max_size, mpi_world_type, p, TAG, MPI_COMM_WORLD);
+			}
+			prepare_buffer(buffer, p);
+			global_index += cur_num_lines;
+			p++;
+			cur_num_lines = get_num_lines(max_size, nprocs, p);
 		}
+		populate_cell(i - global_index + ghost_lines_at_start(p), j, c, buffer);
+	}
 
-		if(frist_line) { /*init the variable with the frist line of the file*/
-			last_read_line = i;
-			lines_to_read -= i; /*in case the input file doesn't start on line 0, we must fix the number os lines to read*/
-			--frist_line;
-		}else {
-			if(i-last_read_line == 1) /*reading the next line*/
-				--lines_to_read;
-			else if(i-last_read_line > 1) /*the next number in the file jumps 1 ou more lines and may end up in another process line*/
-				lines_to_read -= (i-1-last_read_line);
+	for(; p < nprocs; p++) {
+		if(!p) {
+			memcpy(worlds[0], buffer, total_lines * max_size * sizeof(struct world));
+			memcpy(worlds[1], buffer, total_lines * max_size * sizeof(struct world));
+		} else {
+			len_buffer = ghost_lines_at_start(p) + get_num_lines(max_size, nprocs, p) + ghost_lines_at_end(p);
+			printf("LenBuffer %d p %d\n", len_buffer, p);
+            MPI_Send(buffer[0], len_buffer * max_size, mpi_world_type, p, TAG, MPI_COMM_WORLD);
 		}
-
-		if(lines_to_read>0){ /*process P still has lines to populate*/
-			populate_cell(i+maped_index,j,c,buffer);
-			last_read_line = i;
-		}
-	}	
+		
+		prepare_buffer(buffer, p);
+	}
 }
 
+/* DEPRECATED */
 void populate_world_from_file(char file_name[]) {
 	FILE *fp;
 	int i, j, size, row_size;
@@ -1032,11 +1053,18 @@ int main(int argc, char **argv) {
 		MPI_Init(&argc, &argv);
 		MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 		MPI_Comm_rank(MPI_COMM_WORLD, &id);
-		/*Only the master thread has the entire matrix*/
-		if(!id)
-			populate_world_from_file(argv[1]);
 		
-		MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		create_mpi_datatype();
+
+		if(!id) {
+			/* DEPRECATED populate_world_from_file(argv[1]);*/
+			scatter_matrix_from_file(argv[1]);
+		}
+		else {
+			MPI_Bcast(&max_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+			receive_matrix_from_master();
+		}
+		
 		init_ghost_buffers();		
 		
 		/* More processes than lines */
@@ -1046,8 +1074,6 @@ int main(int argc, char **argv) {
 		}
 		
 		if(id < nprocs) {
-			create_mpi_datatype();
-			scatter_matrix();
 			process_generations();
 		/*	gather_matrix();*/
 		}
