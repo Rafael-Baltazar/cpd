@@ -4,10 +4,13 @@ USER="ist169350"
 
 N_PROCS=4
 
-for file in submit*_$N_PROCS
+echo "Number of processes:"
+read nprocs
+
+for file in submit*_$nprocs
 do
-		echo "Test: $file"
-		condor_submit $file
+		echo "Test: $file processes $nprocs"
+#		condor_submit $file
 done
 
 condor_q $USER
