@@ -1,6 +1,6 @@
 universe = parallel
 executable = /usr/sbin/ompiwrapper.sh
-arguments = ../wolves-squirrels-mpi ../../tests/world_10.in 20 5 30 5 
+arguments = ../wolves-squirrels-mpi ../../tests/world_1000.in 20 50 30 10000
 log = /mnt/nimbus/pool/CPD/groups/9/log
 output = /mnt/nimbus/pool/CPD/groups/9/out
 error = /mnt/nimbus/pool/CPD/groups/9/err
