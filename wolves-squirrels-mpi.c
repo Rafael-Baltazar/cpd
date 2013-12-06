@@ -33,41 +33,6 @@ int max_size;
 int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
 int id, nprocs, num_lines;
 int ghost_lines_start, ghost_lines_end, start_cell;
-/*
-* Wolves and squirrels
-*
-* Serial implementation
-*/
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>        
-#include <mpi.h>
-
-/*Types (Defined as binnary masks to make the comparations easier to handle) */
-/* Empty is 0 */
-
-#define EMPTY 0                        /*0000*/
-#define WOLF 1                        /*0001*/
-#define SQUIRREL 2                 /*0010*/
-#define ICE 4                        /*0100*/
-#define TREE 8                        /*1000*/
-#define SQUIRRELnTREE (SQUIRREL | TREE)
-
-#define UP 0
-#define RIGHT 1
-#define DOWN 2
-#define LEFT 3
-
-#define RED 0
-#define BLACK 1
-
-#define N_COLORS 2
-
-int max_size;
-int w_breeding_p, s_breeding_p, w_starvation_p, num_gen;
-int id, nprocs, num_lines;
-int ghost_lines_start, ghost_lines_end, start_cell;
 int start_computation_line = 0, total_lines;
 MPI_Datatype mpi_world_type;
 struct world *buffer_start, *buffer_end;
@@ -1007,7 +972,9 @@ void process_generations() {
 }
 
 int main(int argc, char **argv) {
-        if(argc >= N_ARGS) {
+		double time_start = 0, time_end;
+        
+		if(argc >= N_ARGS) {
                 w_breeding_p = atoi(argv[2]);
                 s_breeding_p = atoi(argv[3]);
                 w_starvation_p = atoi(argv[4]);                
@@ -1016,6 +983,10 @@ int main(int argc, char **argv) {
                 MPI_Init(&argc, &argv);
                 MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
                 MPI_Comm_rank(MPI_COMM_WORLD, &id);
+
+				if(argc == N_ARGS + 1 && !strcmp(argv[6], "time")) {
+						time_start = MPI_Wtime();
+				}
                 /*Only the master thread has the entire matrix*/
                 if(!id)
                         populate_world_from_file(argv[1]);
@@ -1039,7 +1010,11 @@ int main(int argc, char **argv) {
                 if(!id) {
                         print_all_cells();
                 }
-                
+
+				if(time_start) {
+						time_end = MPI_Wtime();
+						printf("Time: %f\n", time_end - time_start);
+				}
 
                 MPI_Barrier(MPI_COMM_WORLD);
                 MPI_Finalize();
