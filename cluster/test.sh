@@ -10,7 +10,7 @@ read nprocs
 for file in submit*_$nprocs
 do
 		echo "Test: $file processes $nprocs"
-#		condor_submit $file
+		condor_submit $file
 done
 
 condor_q $USER
